@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const { pool } = require('./db');
 const dotenv = require('dotenv');
 const path = require('path');
+const { runMigration } = require('./db/migrate');
 
 // Importação das rotas
 const authRoutes = require('./routes/auth');
@@ -63,6 +64,17 @@ app.use((err, req, res, next) => {
     error: process.env.NODE_ENV === 'development' ? err : undefined
   });
 });
+
+// Executar migrações automaticamente na inicialização
+(async function() {
+  try {
+    console.log('Iniciando migrações automáticas...');
+    await runMigration();
+    console.log('Migrações concluídas com sucesso!');
+  } catch (error) {
+    console.error('Erro ao executar migrações:', error);
+  }
+})();
 
 // Iniciar o servidor
 app.listen(PORT, () => {
