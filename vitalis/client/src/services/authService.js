@@ -12,7 +12,7 @@ const authService = {
    */
   async login(email, password) {
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, { email, password });
+      const response = await axios.post(`${API_URL}/login`, { email, password });
       const { token, user } = response.data;
       
       // Armazena o token e dados do usuário no localStorage
