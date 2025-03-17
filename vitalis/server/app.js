@@ -10,6 +10,10 @@ const { runMigration } = require('./db/migrate');
 // Importação das rotas
 const authRoutes = require('./routes/auth');
 const apiConfigRoutes = require('./routes/apiConfig');
+const empresasRoutes = require('./routes/empresas');
+const funcionariosRoutes = require('./routes/funcionarios');
+const absenteismoRoutes = require('./routes/absenteismo');
+const planosRoutes = require('./routes/planos');
 
 // Configuração do ambiente
 dotenv.config();
@@ -42,6 +46,10 @@ app.use(async (req, res, next) => {
 // Rotas da API
 app.use('/api/auth', authRoutes);
 app.use('/api/api-config', apiConfigRoutes);
+app.use('/api/empresas', empresasRoutes);
+app.use('/api/funcionarios', funcionariosRoutes);
+app.use('/api/absenteismo', absenteismoRoutes);
+app.use('/api/planos', planosRoutes);
 
 // Servir arquivos estáticos do React em produção
 if (process.env.NODE_ENV === 'production') {
