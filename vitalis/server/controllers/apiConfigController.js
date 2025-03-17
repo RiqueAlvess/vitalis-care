@@ -28,20 +28,20 @@ exports.getConfigurations = async (req, res, next) => {
     
     result.rows.forEach(row => {
       configs[row.api_type] = {
-        empresa_principal: row.empresa_principal,
-        codigo: row.codigo,
-        chave: row.chave
+        empresa_principal: row.empresa_principal || '',
+        codigo: row.codigo || '',
+        chave: row.chave || ''
       };
       
       // Adicionar campos específicos para cada tipo de API
       if (row.api_type === 'funcionario') {
         configs[row.api_type] = {
           ...configs[row.api_type],
-          ativo: row.ativo,
-          inativo: row.inativo,
-          afastado: row.afastado,
-          pendente: row.pendente,
-          ferias: row.ferias
+          ativo: row.ativo || '',
+          inativo: row.inativo || '',
+          afastado: row.afastado || '',
+          pendente: row.pendente || '',
+          ferias: row.ferias || ''
         };
       } else if (row.api_type === 'absenteismo') {
         const today = new Date();
@@ -66,7 +66,11 @@ exports.getConfigurations = async (req, res, next) => {
     
     res.status(200).json(configs);
   } catch (error) {
-    next(error);
+    console.error('Erro ao buscar configurações:', error);
+    res.status(500).json({
+      message: 'Erro ao buscar configurações',
+      error: error.message
+    });
   }
 };
 
