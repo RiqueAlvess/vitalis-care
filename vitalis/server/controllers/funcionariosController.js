@@ -41,7 +41,7 @@ exports.syncFuncionarios = async (req, res, next) => {
     
     // Obter configurações da API
     const configResult = await pool.query(
-      `SELECT empresa_principal, codigo, chave
+      `SELECT codigo, chave
        FROM api_configurations
        WHERE user_id = $1 AND api_type = 'funcionario'`,
       [userId]
@@ -57,139 +57,159 @@ exports.syncFuncionarios = async (req, res, next) => {
     const config = configResult.rows[0];
     
     // Verificar se as configurações estão completas
-    if (!config.empresa_principal || !config.codigo || !config.chave) {
+    if (!config.codigo || !config.chave) {
       return res.status(400).json({
         success: false,
         message: 'Configurações da API de funcionários incompletas'
       });
     }
     
-    // Preparar parâmetros para requisição à API SOC
-    const parametros = {
-      empresa: config.empresa_principal,
-      codigo: config.codigo,
-      chave: config.chave,
-      tipoSaida: 'json',
-      ativo: 'Sim'
-    };
+    let empresas = [];
     
-    // Adicionar filtro de empresa se especificado
-    if (empresaId) {
-      parametros.empresaTrabalho = empresaId;
+    // Se não foi especificada uma empresa, buscar todas as empresas do usuário
+    if (!empresaId) {
+      const empresasResult = await pool.query(
+        `SELECT codigo FROM empresas WHERE user_id = $1 AND ativo = true`,
+        [userId]
+      );
+      
+      if (empresasResult.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Nenhuma empresa encontrada. Por favor, sincronize as empresas primeiro.'
+        });
+      }
+      
+      empresas = empresasResult.rows;
+    } else {
+      // Se uma empresa foi especificada, usar apenas ela
+      empresas = [{ codigo: empresaId }];
     }
-    
-    // Fazer requisição à API SOC
-    const funcionariosData = await apiConfigController.requestSocApi(parametros);
     
     // Iniciar transação
     const client = await pool.connect();
+    let totalInserted = 0;
+    let totalUpdated = 0;
     
     try {
       await client.query('BEGIN');
       
-      let countInserted = 0;
-      let countUpdated = 0;
-      
-      for (const funcionario of funcionariosData) {
-        // Verificar se o funcionário já existe
-        const checkResult = await client.query(
-          `SELECT id FROM funcionarios
-           WHERE user_id = $1 AND matricula_funcionario = $2`,
-          [userId, funcionario.MATRICULAFUNCIONARIO]
-        );
+      // Para cada empresa, fazer uma requisição à API SOC
+      for (const empresa of empresas) {
+        // Preparar parâmetros para requisição à API SOC
+        const parametros = {
+          empresa: empresa.codigo, // Usar o código da empresa em vez da empresa principal
+          codigo: config.codigo,
+          chave: config.chave,
+          tipoSaida: 'json',
+          ativo: 'Sim'
+        };
         
-        // Converter datas
-        const dataNascimento = funcionario.DATA_NASCIMENTO ? new Date(funcionario.DATA_NASCIMENTO) : null;
-        const dataAdmissao = funcionario.DATA_ADMISSAO ? new Date(funcionario.DATA_ADMISSAO) : null;
-        const dataDemissao = funcionario.DATA_DEMISSAO ? new Date(funcionario.DATA_DEMISSAO) : null;
+        // Fazer requisição à API SOC
+        const funcionariosData = await apiConfigController.requestSocApi(parametros);
         
-        if (checkResult.rows.length === 0) {
-          // Inserir novo funcionário
-          await client.query(
-            `INSERT INTO funcionarios (
-               user_id, codigo_empresa, nome_empresa, codigo, nome,
-               codigo_unidade, nome_unidade, codigo_setor, nome_setor,
-               codigo_cargo, nome_cargo, cbo_cargo, ccusto, nome_centro_custo,
-               matricula_funcionario, cpf, situacao, sexo,
-               data_nascimento, data_admissao, data_demissao
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
-            [
-              userId,
-              funcionario.CODIGOEMPRESA,
-              funcionario.NOMEEMPRESA,
-              funcionario.CODIGO,
-              funcionario.NOME,
-              funcionario.CODIGOUNIDADE,
-              funcionario.NOMEUNIDADE,
-              funcionario.CODIGOSETOR,
-              funcionario.NOMESETOR,
-              funcionario.CODIGOCARGO,
-              funcionario.NOMECARGO,
-              funcionario.CBOCARGO,
-              funcionario.CCUSTO,
-              funcionario.NOMECENTROCUSTO,
-              funcionario.MATRICULAFUNCIONARIO,
-              funcionario.CPF,
-              funcionario.SITUACAO,
-              funcionario.SEXO,
-              dataNascimento,
-              dataAdmissao,
-              dataDemissao
-            ]
+        // Processar os dados dos funcionários
+        for (const funcionario of funcionariosData) {
+          // Verificar se o funcionário já existe
+          const checkResult = await client.query(
+            `SELECT id FROM funcionarios
+             WHERE user_id = $1 AND matricula_funcionario = $2`,
+            [userId, funcionario.MATRICULAFUNCIONARIO]
           );
           
-          countInserted++;
-        } else {
-          // Atualizar funcionário existente
-          await client.query(
-            `UPDATE funcionarios SET
-               codigo_empresa = $2,
-               nome_empresa = $3,
-               codigo = $4,
-               nome = $5,
-               codigo_unidade = $6,
-               nome_unidade = $7,
-               codigo_setor = $8,
-               nome_setor = $9,
-               codigo_cargo = $10,
-               nome_cargo = $11,
-               cbo_cargo = $12,
-               ccusto = $13,
-               nome_centro_custo = $14,
-               cpf = $16,
-               situacao = $17,
-               sexo = $18,
-               data_nascimento = $19,
-               data_admissao = $20,
-               data_demissao = $21,
-               updated_at = CURRENT_TIMESTAMP
-             WHERE user_id = $1 AND matricula_funcionario = $15`,
-            [
-              userId,
-              funcionario.CODIGOEMPRESA,
-              funcionario.NOMEEMPRESA,
-              funcionario.CODIGO,
-              funcionario.NOME,
-              funcionario.CODIGOUNIDADE,
-              funcionario.NOMEUNIDADE,
-              funcionario.CODIGOSETOR,
-              funcionario.NOMESETOR,
-              funcionario.CODIGOCARGO,
-              funcionario.NOMECARGO,
-              funcionario.CBOCARGO,
-              funcionario.CCUSTO,
-              funcionario.NOMECENTROCUSTO,
-              funcionario.MATRICULAFUNCIONARIO,
-              funcionario.CPF,
-              funcionario.SITUACAO,
-              funcionario.SEXO,
-              dataNascimento,
-              dataAdmissao,
-              dataDemissao
-            ]
-          );
+          // Converter datas
+          const dataNascimento = funcionario.DATA_NASCIMENTO ? new Date(funcionario.DATA_NASCIMENTO) : null;
+          const dataAdmissao = funcionario.DATA_ADMISSAO ? new Date(funcionario.DATA_ADMISSAO) : null;
+          const dataDemissao = funcionario.DATA_DEMISSAO ? new Date(funcionario.DATA_DEMISSAO) : null;
           
-          countUpdated++;
+          if (checkResult.rows.length === 0) {
+            // Inserir novo funcionário
+            await client.query(
+              `INSERT INTO funcionarios (
+                 user_id, codigo_empresa, nome_empresa, codigo, nome,
+                 codigo_unidade, nome_unidade, codigo_setor, nome_setor,
+                 codigo_cargo, nome_cargo, cbo_cargo, ccusto, nome_centro_custo,
+                 matricula_funcionario, cpf, situacao, sexo,
+                 data_nascimento, data_admissao, data_demissao
+               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
+              [
+                userId,
+                funcionario.CODIGOEMPRESA,
+                funcionario.NOMEEMPRESA,
+                funcionario.CODIGO,
+                funcionario.NOME,
+                funcionario.CODIGOUNIDADE,
+                funcionario.NOMEUNIDADE,
+                funcionario.CODIGOSETOR,
+                funcionario.NOMESETOR,
+                funcionario.CODIGOCARGO,
+                funcionario.NOMECARGO,
+                funcionario.CBOCARGO,
+                funcionario.CCUSTO,
+                funcionario.NOMECENTROCUSTO,
+                funcionario.MATRICULAFUNCIONARIO,
+                funcionario.CPF,
+                funcionario.SITUACAO,
+                funcionario.SEXO,
+                dataNascimento,
+                dataAdmissao,
+                dataDemissao
+              ]
+            );
+            
+            totalInserted++;
+          } else {
+            // Atualizar funcionário existente
+            await client.query(
+              `UPDATE funcionarios SET
+                 codigo_empresa = $2,
+                 nome_empresa = $3,
+                 codigo = $4,
+                 nome = $5,
+                 codigo_unidade = $6,
+                 nome_unidade = $7,
+                 codigo_setor = $8,
+                 nome_setor = $9,
+                 codigo_cargo = $10,
+                 nome_cargo = $11,
+                 cbo_cargo = $12,
+                 ccusto = $13,
+                 nome_centro_custo = $14,
+                 cpf = $16,
+                 situacao = $17,
+                 sexo = $18,
+                 data_nascimento = $19,
+                 data_admissao = $20,
+                 data_demissao = $21,
+                 updated_at = CURRENT_TIMESTAMP
+               WHERE user_id = $1 AND matricula_funcionario = $15`,
+              [
+                userId,
+                funcionario.CODIGOEMPRESA,
+                funcionario.NOMEEMPRESA,
+                funcionario.CODIGO,
+                funcionario.NOME,
+                funcionario.CODIGOUNIDADE,
+                funcionario.NOMEUNIDADE,
+                funcionario.CODIGOSETOR,
+                funcionario.NOMESETOR,
+                funcionario.CODIGOCARGO,
+                funcionario.NOMECARGO,
+                funcionario.CBOCARGO,
+                funcionario.CCUSTO,
+                funcionario.NOMECENTROCUSTO,
+                funcionario.MATRICULAFUNCIONARIO,
+                funcionario.CPF,
+                funcionario.SITUACAO,
+                funcionario.SEXO,
+                dataNascimento,
+                dataAdmissao,
+                dataDemissao
+              ]
+            );
+            
+            totalUpdated++;
+          }
         }
       }
       
@@ -198,9 +218,9 @@ exports.syncFuncionarios = async (req, res, next) => {
       res.status(200).json({
         success: true,
         message: 'Sincronização de funcionários concluída com sucesso',
-        count: funcionariosData.length,
-        inserted: countInserted,
-        updated: countUpdated
+        count: totalInserted + totalUpdated,
+        inserted: totalInserted,
+        updated: totalUpdated
       });
     } catch (error) {
       await client.query('ROLLBACK');
