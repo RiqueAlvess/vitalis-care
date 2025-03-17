@@ -1,22 +1,14 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ptBR } from 'date-fns/locale';
 
-// Páginas
-import Login from './pages/Auth/Login';
-import Register from './pages/Auth/Register';
-import Dashboard from './pages/Dashboard/Dashboard';
-import Settings from './pages/Settings/Settings';
+// Routes
+import AppRoutes from './routes';
 
-// Componentes
-import Layout from './components/layout/Layout';
-import ProtectedRoute from './components/common/ProtectedRoute';
-
-// Contexto
+// Context
 import { useAuth } from './context/AuthContext';
 
 const theme = createTheme({
@@ -34,36 +26,65 @@ const theme = createTheme({
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
   },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.1)',
+        },
+      },
+    },
+  },
 });
 
 function App() {
   const { isLoading } = useAuth();
 
+  // Loading state
   if (isLoading) {
-    return <div>Carregando...</div>;
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh',
+          flexDirection: 'column'
+        }}>
+          <div style={{ 
+            width: '50px', 
+            height: '50px',
+            border: '5px solid #f3f3f3',
+            borderTop: '5px solid #1976d2',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            marginBottom: '20px'
+          }} />
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <p>Carregando Vitalis...</p>
+        </div>
+      </ThemeProvider>
+    );
   }
 
   return (
     <ThemeProvider theme={theme}>
       <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
         <CssBaseline />
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          
-          <Route 
-            path="/" 
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-        </Routes>
+        <AppRoutes />
       </LocalizationProvider>
     </ThemeProvider>
   );
