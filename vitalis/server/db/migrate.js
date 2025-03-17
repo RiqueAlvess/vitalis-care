@@ -69,19 +69,24 @@ async function runMigration() {
     console.log('Migração finalizada com sucesso.');
   } catch (error) {
     console.error('Erro durante o processo de migração:', error);
-    process.exit(1);
+    throw error;
   } finally {
     client.release();
   }
 }
 
-// Executar migração
-runMigration()
-  .then(() => {
-    console.log('Processo de migração concluído.');
-    process.exit(0);
-  })
-  .catch(error => {
-    console.error('Erro no processo de migração:', error);
-    process.exit(1);
-  });
+// Executar migração quando o arquivo é chamado diretamente
+if (require.main === module) {
+  runMigration()
+    .then(() => {
+      console.log('Processo de migração concluído.');
+      process.exit(0);
+    })
+    .catch(error => {
+      console.error('Erro no processo de migração:', error);
+      process.exit(1);
+    });
+}
+
+// Exportar a função para uso em outros arquivos
+module.exports = { runMigration };
