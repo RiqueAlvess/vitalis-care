@@ -81,6 +81,9 @@ exports.syncEmpresas = async (req, res, next) => {
           [userId, empresa.CODIGO]
         );
         
+        // CORREÇÃO: Tratar campo ATIVO como valor numérico (1 = ativo, 0 = inativo)
+        const ativoValor = empresa.ATIVO === 1 || empresa.ATIVO === '1';
+        
         if (checkResult.rows.length === 0) {
           // Inserir nova empresa
           await client.query(
@@ -105,7 +108,7 @@ exports.syncEmpresas = async (req, res, next) => {
               empresa.CNPJ,
               empresa.INSCRICAOESTADUAL,
               empresa.INSCRICAOMUNICIPAL,
-              empresa.ATIVO === 1,
+              ativoValor,
               empresa.CODIGOCLIENTEINTEGRACAO
             ]
           );
@@ -146,7 +149,7 @@ exports.syncEmpresas = async (req, res, next) => {
               empresa.CNPJ,
               empresa.INSCRICAOESTADUAL,
               empresa.INSCRICAOMUNICIPAL,
-              empresa.ATIVO === 1,
+              ativoValor,
               empresa.CODIGOCLIENTEINTEGRACAO
             ]
           );
