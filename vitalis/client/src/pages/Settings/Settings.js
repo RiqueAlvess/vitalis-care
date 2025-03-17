@@ -4,7 +4,8 @@ import {
   CardHeader, Divider, CircularProgress, Button, IconButton,
   FormControl, InputLabel, Select, MenuItem, TextField,
   Tabs, Tab, Alert, Snackbar, Dialog, DialogTitle, 
-  DialogContent, DialogActions, CardActions
+  DialogContent, DialogActions, CardActions, FormControlLabel,
+  Checkbox, FormGroup, FormHelperText
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -38,11 +39,11 @@ const Settings = () => {
       empresa_principal: '',
       codigo: '',
       chave: '',
-      ativo: 'Sim',
-      inativo: '',
-      afastado: '',
-      pendente: '',
-      ferias: ''
+      ativo: true,
+      inativo: false,
+      afastado: false,
+      pendente: false,
+      ferias: false
     },
     absenteismo: {
       empresa_principal: '',
@@ -50,6 +51,25 @@ const Settings = () => {
       chave: '',
       dataInicio: format(subMonths(new Date(), 2), 'yyyy-MM-dd'),
       dataFim: format(new Date(), 'yyyy-MM-dd')
+    }
+  });
+
+  // Validação de campos obrigatórios
+  const [errors, setErrors] = useState({
+    empresa: {
+      empresa_principal: false,
+      codigo: false,
+      chave: false
+    },
+    funcionario: {
+      empresa_principal: false,
+      codigo: false,
+      chave: false
+    },
+    absenteismo: {
+      empresa_principal: false,
+      codigo: false,
+      chave: false
     }
   });
   
@@ -74,10 +94,23 @@ const Settings = () => {
       
       Object.keys(configs).forEach(apiType => {
         if (configs[apiType]) {
-          updatedConfigs[apiType] = {
-            ...updatedConfigs[apiType],
-            ...configs[apiType]
-          };
+          // Se for funcionario, converter strings para booleanos nas opções
+          if (apiType === 'funcionario') {
+            updatedConfigs[apiType] = {
+              ...updatedConfigs[apiType],
+              ...configs[apiType],
+              ativo: configs[apiType].ativo === 'Sim',
+              inativo: configs[apiType].inativo === 'Sim',
+              afastado: configs[apiType].afastado === 'Sim',
+              pendente: configs[apiType].pendente === 'Sim',
+              ferias: configs[apiType].ferias === 'Sim'
+            };
+          } else {
+            updatedConfigs[apiType] = {
+              ...updatedConfigs[apiType],
+              ...configs[apiType]
+            };
+          }
         }
       });
       
@@ -120,6 +153,17 @@ const Settings = () => {
       }
     }));
     
+    // Limpar erro deste campo se existir
+    if (errors[apiType] && errors[apiType][field]) {
+      setErrors(prev => ({
+        ...prev,
+        [apiType]: {
+          ...prev[apiType],
+          [field]: false
+        }
+      }));
+    }
+    
     // Se estiver mudando empresa_principal, atualizar outros campos também
     if (field === 'empresa_principal') {
       setConfigurations(prev => ({
@@ -141,11 +185,53 @@ const Settings = () => {
     
     handleInputChange(apiType, field, formattedDate);
   };
+
+  const validateConfigFields = (apiType) => {
+    const config = configurations[apiType];
+    const newErrors = { ...errors[apiType] };
+    let isValid = true;
+
+    // Validar campos comuns obrigatórios
+    ['empresa_principal', 'codigo', 'chave'].forEach(field => {
+      if (!config[field]) {
+        newErrors[field] = true;
+        isValid = false;
+      } else {
+        newErrors[field] = false;
+      }
+    });
+
+    // Atualizar erros
+    setErrors(prev => ({
+      ...prev,
+      [apiType]: newErrors
+    }));
+
+    return isValid;
+  };
   
   const handleSaveConfig = async (apiType) => {
     try {
+      // Validar campos obrigatórios antes de salvar
+      if (!validateConfigFields(apiType)) {
+        showNotification('Preencha todos os campos obrigatórios', 'error');
+        return;
+      }
+
       setLoading(true);
-      await apiConfigService.saveConfiguration(apiType, configurations[apiType]);
+      
+      // Converter valores booleanos para "Sim" / vazio para API de funcionário
+      const dataToSave = { ...configurations[apiType] };
+      
+      if (apiType === 'funcionario') {
+        dataToSave.ativo = dataToSave.ativo ? 'Sim' : '';
+        dataToSave.inativo = dataToSave.inativo ? 'Sim' : '';
+        dataToSave.afastado = dataToSave.afastado ? 'Sim' : '';
+        dataToSave.pendente = dataToSave.pendente ? 'Sim' : '';
+        dataToSave.ferias = dataToSave.ferias ? 'Sim' : '';
+      }
+      
+      await apiConfigService.saveConfiguration(apiType, dataToSave);
       showNotification(`Configurações de ${getApiTypeLabel(apiType)} salvas com sucesso`, 'success');
     } catch (error) {
       showNotification(`Erro ao salvar configurações de ${getApiTypeLabel(apiType)}`, 'error');
@@ -156,11 +242,27 @@ const Settings = () => {
   
   const handleTestConnection = async (apiType) => {
     try {
+      // Validar campos obrigatórios antes de testar
+      if (!validateConfigFields(apiType)) {
+        showNotification('Preencha todos os campos obrigatórios', 'error');
+        return;
+      }
+
       setTestLoading(true);
-      const result = await apiConfigService.testConnection({
-        type: apiType,
-        ...configurations[apiType]
-      });
+      
+      // Preparar dados para o teste
+      const dataToTest = { ...configurations[apiType], type: apiType };
+      
+      // Converter valores booleanos para "Sim" / vazio para API de funcionário
+      if (apiType === 'funcionario') {
+        dataToTest.ativo = dataToTest.ativo ? 'Sim' : '';
+        dataToTest.inativo = dataToTest.inativo ? 'Sim' : '';
+        dataToTest.afastado = dataToTest.afastado ? 'Sim' : '';
+        dataToTest.pendente = dataToTest.pendente ? 'Sim' : '';
+        dataToTest.ferias = dataToTest.ferias ? 'Sim' : '';
+      }
+      
+      const result = await apiConfigService.testConnection(dataToTest);
       
       if (result.success) {
         showNotification(`Conexão com API de ${getApiTypeLabel(apiType)} testada com sucesso`, 'success');
@@ -391,6 +493,9 @@ const Settings = () => {
                         value={configurations.empresa.empresa_principal}
                         onChange={(e) => handleInputChange('empresa', 'empresa_principal', e.target.value)}
                         margin="normal"
+                        required
+                        error={errors.empresa.empresa_principal}
+                        helperText={errors.empresa.empresa_principal ? "Campo obrigatório" : ""}
                       />
                     </Grid>
                     
@@ -402,6 +507,9 @@ const Settings = () => {
                         value={configurations.empresa.codigo}
                         onChange={(e) => handleInputChange('empresa', 'codigo', e.target.value)}
                         margin="normal"
+                        required
+                        error={errors.empresa.codigo}
+                        helperText={errors.empresa.codigo ? "Campo obrigatório" : ""}
                       />
                     </Grid>
                     
@@ -413,6 +521,9 @@ const Settings = () => {
                         value={configurations.empresa.chave}
                         onChange={(e) => handleInputChange('empresa', 'chave', e.target.value)}
                         margin="normal"
+                        required
+                        error={errors.empresa.chave}
+                        helperText={errors.empresa.chave ? "Campo obrigatório" : ""}
                       />
                     </Grid>
                   </Grid>
@@ -470,6 +581,7 @@ const Settings = () => {
                             <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Razão Social</th>
                             <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>CNPJ</th>
                             <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Cidade/UF</th>
+                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Status</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -479,6 +591,9 @@ const Settings = () => {
                               <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{empresa.razao_social}</td>
                               <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{empresa.cnpj}</td>
                               <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{empresa.cidade}/{empresa.uf}</td>
+                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>
+                                {empresa.ativo ? 'Ativa' : 'Inativa'}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -519,6 +634,9 @@ const Settings = () => {
                         value={configurations.funcionario.empresa_principal}
                         onChange={(e) => handleInputChange('funcionario', 'empresa_principal', e.target.value)}
                         margin="normal"
+                        required
+                        error={errors.funcionario.empresa_principal}
+                        helperText={errors.funcionario.empresa_principal ? "Campo obrigatório" : ""}
                       />
                     </Grid>
                     
@@ -530,6 +648,9 @@ const Settings = () => {
                         value={configurations.funcionario.codigo}
                         onChange={(e) => handleInputChange('funcionario', 'codigo', e.target.value)}
                         margin="normal"
+                        required
+                        error={errors.funcionario.codigo}
+                        helperText={errors.funcionario.codigo ? "Campo obrigatório" : ""}
                       />
                     </Grid>
                     
@@ -541,6 +662,9 @@ const Settings = () => {
                         value={configurations.funcionario.chave}
                         onChange={(e) => handleInputChange('funcionario', 'chave', e.target.value)}
                         margin="normal"
+                        required
+                        error={errors.funcionario.chave}
+                        helperText={errors.funcionario.chave ? "Campo obrigatório" : ""}
                       />
                     </Grid>
                     
@@ -549,61 +673,59 @@ const Settings = () => {
                       <Typography variant="subtitle1" gutterBottom>
                         Filtros opcionais
                       </Typography>
-                    </Grid>
-                    
-                    <Grid item xs={6} md={2}>
-                      <TextField
-                        fullWidth
-                        label="Ativo"
-                        variant="outlined"
-                        value={configurations.funcionario.ativo}
-                        onChange={(e) => handleInputChange('funcionario', 'ativo', e.target.value)}
-                        margin="normal"
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={6} md={2}>
-                      <TextField
-                        fullWidth
-                        label="Inativo"
-                        variant="outlined"
-                        value={configurations.funcionario.inativo}
-                        onChange={(e) => handleInputChange('funcionario', 'inativo', e.target.value)}
-                        margin="normal"
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={6} md={2}>
-                      <TextField
-                        fullWidth
-                        label="Afastado"
-                        variant="outlined"
-                        value={configurations.funcionario.afastado}
-                        onChange={(e) => handleInputChange('funcionario', 'afastado', e.target.value)}
-                        margin="normal"
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={6} md={2}>
-                      <TextField
-                        fullWidth
-                        label="Pendente"
-                        variant="outlined"
-                        value={configurations.funcionario.pendente}
-                        onChange={(e) => handleInputChange('funcionario', 'pendente', e.target.value)}
-                        margin="normal"
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={6} md={2}>
-                      <TextField
-                        fullWidth
-                        label="Férias"
-                        variant="outlined"
-                        value={configurations.funcionario.ferias}
-                        onChange={(e) => handleInputChange('funcionario', 'ferias', e.target.value)}
-                        margin="normal"
-                      />
+                      <FormGroup row>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={configurations.funcionario.ativo}
+                              onChange={(e) => handleInputChange('funcionario', 'ativo', e.target.checked)}
+                              name="ativo"
+                            />
+                          }
+                          label="Ativo"
+                        />
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={configurations.funcionario.inativo}
+                              onChange={(e) => handleInputChange('funcionario', 'inativo', e.target.checked)}
+                              name="inativo"
+                            />
+                          }
+                          label="Inativo"
+                        />
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={configurations.funcionario.afastado}
+                              onChange={(e) => handleInputChange('funcionario', 'afastado', e.target.checked)}
+                              name="afastado"
+                            />
+                          }
+                          label="Afastado"
+                        />
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={configurations.funcionario.pendente}
+                              onChange={(e) => handleInputChange('funcionario', 'pendente', e.target.checked)}
+                              name="pendente"
+                            />
+                          }
+                          label="Pendente"
+                        />
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={configurations.funcionario.ferias}
+                              onChange={(e) => handleInputChange('funcionario', 'ferias', e.target.checked)}
+                              name="ferias"
+                            />
+                          }
+                          label="Férias"
+                        />
+                      </FormGroup>
+                      <FormHelperText>Selecione os status de funcionários que deseja importar</FormHelperText>
                     </Grid>
                   </Grid>
                 </CardContent>
@@ -680,6 +802,7 @@ const Settings = () => {
                             <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Empresa</th>
                             <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Setor</th>
                             <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Cargo</th>
+                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Situação</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -690,6 +813,7 @@ const Settings = () => {
                               <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{funcionario.nome_empresa}</td>
                               <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{funcionario.nome_setor}</td>
                               <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{funcionario.nome_cargo}</td>
+                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{funcionario.situacao || "Ativo"}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -732,6 +856,9 @@ const Settings = () => {
                         value={configurations.absenteismo.empresa_principal}
                         onChange={(e) => handleInputChange('absenteismo', 'empresa_principal', e.target.value)}
                         margin="normal"
+                        required
+                        error={errors.absenteismo.empresa_principal}
+                        helperText={errors.absenteismo.empresa_principal ? "Campo obrigatório" : ""}
                       />
                     </Grid>
                     
@@ -743,6 +870,9 @@ const Settings = () => {
                         value={configurations.absenteismo.codigo}
                         onChange={(e) => handleInputChange('absenteismo', 'codigo', e.target.value)}
                         margin="normal"
+                        required
+                        error={errors.absenteismo.codigo}
+                        helperText={errors.absenteismo.codigo ? "Campo obrigatório" : ""}
                       />
                     </Grid>
                     
@@ -754,6 +884,9 @@ const Settings = () => {
                         value={configurations.absenteismo.chave}
                         onChange={(e) => handleInputChange('absenteismo', 'chave', e.target.value)}
                         margin="normal"
+                        required
+                        error={errors.absenteismo.chave}
+                        helperText={errors.absenteismo.chave ? "Campo obrigatório" : ""}
                       />
                     </Grid>
                     
