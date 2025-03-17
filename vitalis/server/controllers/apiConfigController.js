@@ -77,6 +77,7 @@ exports.getConfigurations = async (req, res, next) => {
  * @param {Function} next - Função next do Express
  */
 exports.saveConfiguration = async (req, res, next) => {
+  const client = await pool.connect();
   try {
     const userId = req.user.id;
     const apiType = req.params.apiType;
@@ -91,30 +92,64 @@ exports.saveConfiguration = async (req, res, next) => {
     // Campos comuns a todas as APIs
     const { empresa_principal, codigo, chave } = config;
     
-    // Query base para atualização
-    let query = `
-      UPDATE api_configurations
-      SET empresa_principal = $1, 
-          codigo = $2, 
-          chave = $3,
-          updated_at = CURRENT_TIMESTAMP
-    `;
+    // Verificar se o registro já existe
+    const checkResult = await client.query(
+      'SELECT id FROM api_configurations WHERE user_id = $1 AND api_type = $2',
+      [userId, apiType]
+    );
     
-    // Parâmetros para a query
-    const params = [empresa_principal, codigo, chave, userId, apiType];
+    await client.query('BEGIN');
     
-    // Se for API de funcionário, incluir os campos adicionais
-    if (apiType === 'funcionario') {
-      const { ativo, inativo, afastado, pendente, ferias } = config;
-      query += `, ativo = $6, inativo = $7, afastado = $8, pendente = $9, ferias = $10`;
-      params.splice(4, 0, ativo, inativo, afastado, pendente, ferias);
+    if (checkResult.rows.length === 0) {
+      // Inserir novo registro
+      let insertQuery = `
+        INSERT INTO api_configurations (
+          user_id, api_type, empresa_principal, codigo, chave
+        ) VALUES ($1, $2, $3, $4, $5)
+      `;
+      
+      const insertParams = [userId, apiType, empresa_principal, codigo, chave];
+      
+      // Se for API de funcionário, adicionar campos específicos
+      if (apiType === 'funcionario') {
+        const { ativo, inativo, afastado, pendente, ferias } = config;
+        insertQuery = `
+          INSERT INTO api_configurations (
+            user_id, api_type, empresa_principal, codigo, chave,
+            ativo, inativo, afastado, pendente, ferias
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `;
+        
+        insertParams.push(ativo, inativo, afastado, pendente, ferias);
+      }
+      
+      await client.query(insertQuery, insertParams);
+    } else {
+      // Atualizar registro existente
+      let updateQuery = `
+        UPDATE api_configurations
+        SET empresa_principal = $1, 
+            codigo = $2, 
+            chave = $3,
+            updated_at = CURRENT_TIMESTAMP
+      `;
+      
+      const updateParams = [empresa_principal, codigo, chave, userId, apiType];
+      
+      // Se for API de funcionário, atualizar campos específicos
+      if (apiType === 'funcionario') {
+        const { ativo, inativo, afastado, pendente, ferias } = config;
+        updateQuery += `, ativo = $6, inativo = $7, afastado = $8, pendente = $9, ferias = $10`;
+        updateParams.splice(4, 0, ativo, inativo, afastado, pendente, ferias);
+      }
+      
+      // Completar query
+      updateQuery += ` WHERE user_id = $4 AND api_type = $5`;
+      
+      await client.query(updateQuery, updateParams);
     }
     
-    // Completar query
-    query += ` WHERE user_id = $4 AND api_type = $5`;
-    
-    // Executar atualização
-    await pool.query(query, params);
+    await client.query('COMMIT');
     
     // Preparar resposta
     const responseConfig = {
@@ -139,7 +174,14 @@ exports.saveConfiguration = async (req, res, next) => {
       config: responseConfig
     });
   } catch (error) {
-    next(error);
+    await client.query('ROLLBACK');
+    console.error('Erro ao salvar configuração:', error);
+    res.status(500).json({
+      message: 'Erro ao salvar configuração',
+      error: error.message
+    });
+  } finally {
+    client.release();
   }
 };
 
