@@ -16,7 +16,8 @@ exports.getConfigurations = async (req, res, next) => {
     
     // Buscar configurações de API do usuário
     const result = await pool.query(
-      `SELECT api_type, empresa_principal, codigo, chave 
+      `SELECT api_type, empresa_principal, codigo, chave, 
+              ativo, inativo, afastado, pendente, ferias
        FROM api_configurations 
        WHERE user_id = $1`,
       [userId]
@@ -36,11 +37,11 @@ exports.getConfigurations = async (req, res, next) => {
       if (row.api_type === 'funcionario') {
         configs[row.api_type] = {
           ...configs[row.api_type],
-          ativo: 'Sim',
-          inativo: '',
-          afastado: '',
-          pendente: '',
-          ferias: ''
+          ativo: row.ativo,
+          inativo: row.inativo,
+          afastado: row.afastado,
+          pendente: row.pendente,
+          ferias: row.ferias
         };
       } else if (row.api_type === 'absenteismo') {
         const today = new Date();
@@ -54,6 +55,14 @@ exports.getConfigurations = async (req, res, next) => {
         };
       }
     });
+    
+    // Buscar empresas disponíveis para seleção
+    const empresasResult = await pool.query(
+      `SELECT codigo, razao_social FROM empresas WHERE user_id = $1 AND ativo = true ORDER BY razao_social`,
+      [userId]
+    );
+    
+    configs.empresasDisponiveis = empresasResult.rows;
     
     res.status(200).json(configs);
   } catch (error) {
@@ -82,25 +91,52 @@ exports.saveConfiguration = async (req, res, next) => {
     // Campos comuns a todas as APIs
     const { empresa_principal, codigo, chave } = config;
     
-    // Atualizar configuração na base de dados
-    await pool.query(
-      `UPDATE api_configurations
-       SET empresa_principal = $1, 
-           codigo = $2, 
-           chave = $3,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE user_id = $4 AND api_type = $5`,
-      [empresa_principal, codigo, chave, userId, apiType]
-    );
+    // Query base para atualização
+    let query = `
+      UPDATE api_configurations
+      SET empresa_principal = $1, 
+          codigo = $2, 
+          chave = $3,
+          updated_at = CURRENT_TIMESTAMP
+    `;
+    
+    // Parâmetros para a query
+    const params = [empresa_principal, codigo, chave, userId, apiType];
+    
+    // Se for API de funcionário, incluir os campos adicionais
+    if (apiType === 'funcionario') {
+      const { ativo, inativo, afastado, pendente, ferias } = config;
+      query += `, ativo = $6, inativo = $7, afastado = $8, pendente = $9, ferias = $10`;
+      params.splice(4, 0, ativo, inativo, afastado, pendente, ferias);
+    }
+    
+    // Completar query
+    query += ` WHERE user_id = $4 AND api_type = $5`;
+    
+    // Executar atualização
+    await pool.query(query, params);
+    
+    // Preparar resposta
+    const responseConfig = {
+      empresa_principal,
+      codigo,
+      chave
+    };
+    
+    // Adicionar campos específicos na resposta
+    if (apiType === 'funcionario') {
+      const { ativo, inativo, afastado, pendente, ferias } = config;
+      responseConfig.ativo = ativo;
+      responseConfig.inativo = inativo;
+      responseConfig.afastado = afastado;
+      responseConfig.pendente = pendente;
+      responseConfig.ferias = ferias;
+    }
     
     res.status(200).json({ 
       message: 'Configuração salva com sucesso',
       apiType,
-      config: {
-        empresa_principal,
-        codigo,
-        chave
-      }
+      config: responseConfig
     });
   } catch (error) {
     next(error);
@@ -115,7 +151,7 @@ exports.saveConfiguration = async (req, res, next) => {
  */
 exports.testConnection = async (req, res, next) => {
   try {
-    const { type, empresa_principal, codigo, chave } = req.body;
+    const { type, empresa_principal, codigo, chave, ativo, inativo, afastado, pendente, ferias } = req.body;
     
     // Validar tipo de API
     const validApiTypes = ['empresa', 'funcionario', 'absenteismo'];
@@ -138,7 +174,11 @@ exports.testConnection = async (req, res, next) => {
     
     // Adicionar parâmetros específicos para cada tipo de API
     if (type === 'funcionario') {
-      parametros.ativo = 'Sim';
+      if (ativo) parametros.ativo = 'Sim';
+      if (inativo) parametros.inativo = 'Sim';
+      if (afastado) parametros.afastado = 'Sim';
+      if (pendente) parametros.pendente = 'Sim';
+      if (ferias) parametros.ferias = 'Sim';
     } else if (type === 'absenteismo') {
       const today = new Date();
       const oneMonthAgo = new Date();
