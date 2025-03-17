@@ -1,41 +1,116 @@
-const express = require('express');
-const cors = require('cors');
-const morgan = require('morgan');
-const helmet = require('helmet');
-const { pool } = require('./db');
-const dotenv = require('dotenv');
-const path = require('path');
-const { runMigration } = require('./db/migrate');
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { 
+  TextField, 
+  Button, 
+  Paper, 
+  Typography, 
+  Container, 
+  Box,
+  Alert 
+} from '@mui/material';
+import { isValidEmail } from '../../utils/validators';
 
-// Importação das rotas
-const authRoutes = require('./routes/auth');
-const apiConfigRoutes = require('./routes/apiConfig');
-const empresasRoutes = require('./routes/empresas');
-const funcionariosRoutes = require('./routes/funcionarios');
-const absenteismoRoutes = require('./routes/absenteismo');
-const planosRoutes = require('./routes/planos');
+const Login = () => {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    
+    // Validate email
+    if (!isValidEmail(email)) {
+      setError('Por favor, insira um email válido');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+      await login(email, password);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erro ao fazer login');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  return (
+    <Container component="main" maxWidth="xs">
+      <Paper elevation={3} sx={{ mt: 8, p: 4 }}>
+        <Typography component="h1" variant="h5" align="center" gutterBottom>
+          Login Vitalis
+        </Typography>
+        
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        
+        <Box component="form" onSubmit={handleSubmit} noValidate>
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="email"
+            label="Email"
+            name="email"
+            autoComplete="email"
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            error={!!error && !isValidEmail(email)}
+            helperText={error && !isValidEmail(email) ? 'Email inválido' : ''}
+          />
+          
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="password"
+            label="Senha"
+            type="password"
+            id="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2 }}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Entrando...' : 'Entrar'}
+          </Button>
+          
+          <Box textAlign="center">
+            <Typography variant="body2">
+              Não tem uma conta?{' '}
+              <Button 
+                color="primary" 
+                size="small" 
+                onClick={() => navigate('/register')}
+              >
+                Cadastre-se
+              </Button>
+            </Typography>
+          </Box>
+        </Box>
+      </Paper>
+    </Container>
+  );
+};
 
-// Configuração do ambiente
-dotenv.config();
-
-const app = express();
-const PORT = process.env.PORT || 5000;
-
-// Middleware
-app.use(cors());
-app.use(helmet());
-app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Verificação da conexão com o banco de dados
-app.use(async (req, res, next) => {
-  try {
-    // Verifica a conexão com o banco
-    await pool.query('SELECT 1');
-    next();
-  } catch (error) {
-    console.error('Erro de conexão com o banco de dados:', error);
-    res.status(500).json({ 
-      message: 'Erro de conexão com o banco de dados', 
-      error
+export default Login;
