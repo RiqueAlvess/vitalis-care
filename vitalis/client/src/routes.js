@@ -12,6 +12,12 @@ import Register from './pages/Auth/Register';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Settings from './pages/Settings/Settings';
 
+// Novas páginas
+import Empresas from './pages/Empresas/Empresas';
+import Funcionarios from './pages/Funcionarios/Funcionarios';
+import Absenteismo from './pages/Absenteismo/Absenteismo';
+import Profile from './pages/Profile/Profile';
+
 // Protected Routes
 import ProtectedRoute from './components/common/ProtectedRoute';
 
@@ -38,11 +44,11 @@ const AppRoutes = () => {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="settings" element={<Settings />} />
         
-        {/* Future Routes */}
-        <Route path="empresas" element={<Dashboard />} /> {/* Placeholder */}
-        <Route path="funcionarios" element={<Dashboard />} /> {/* Placeholder */}
-        <Route path="absenteismo" element={<Dashboard />} /> {/* Placeholder */}
-        <Route path="profile" element={<Settings />} /> {/* Placeholder */}
+        {/* Páginas adicionadas */}
+        <Route path="empresas" element={<Empresas />} />
+        <Route path="funcionarios" element={<Funcionarios />} />
+        <Route path="absenteismo" element={<Absenteismo />} />
+        <Route path="profile" element={<Profile />} />
         
         {/* Catch-all route */}
         <Route path="*" element={<NotFound />} />
