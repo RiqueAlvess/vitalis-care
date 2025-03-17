@@ -17,6 +17,33 @@ import { useAuth } from '../../context/AuthContext';
 
 const drawerWidth = 240;
 
+// Logo Vitalis Health Tech
+const Logo = () => (
+  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <Box sx={{ 
+      width: 50, 
+      height: 50, 
+      m: 1,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: '10px',
+      bgcolor: 'primary.main',
+      color: 'white',
+      fontWeight: 'bold',
+      fontSize: '24px'
+    }}>
+      V
+    </Box>
+    <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold' }}>
+      VITALIS
+    </Typography>
+    <Typography variant="subtitle2" noWrap component="div" sx={{ fontSize: '0.7rem', letterSpacing: 1 }}>
+      HEALTH TECH
+    </Typography>
+  </Box>
+);
+
 const Layout = () => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
@@ -82,10 +109,8 @@ const Layout = () => {
   
   const drawer = (
     <div>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          Vitalis
-        </Typography>
+      <Toolbar sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+        <Logo />
       </Toolbar>
       <Divider />
       <List>
