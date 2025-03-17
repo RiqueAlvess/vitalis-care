@@ -48,6 +48,7 @@ exports.getAbsenteismo = async (req, res, next) => {
 /**
  * Sincroniza dados de absenteísmo com a API SOC
  */
+// Substituir o método syncAbsenteismo existente por este:
 exports.syncAbsenteismo = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -55,15 +56,42 @@ exports.syncAbsenteismo = async (req, res, next) => {
     
     // Validar datas
     const hoje = new Date();
+    const limitTresMeses = new Date();
+    limitTresMeses.setMonth(hoje.getMonth() - 3);
+    
     const defaultDataInicio = format(subMonths(hoje, 2), 'yyyy-MM-dd');
     const defaultDataFim = format(hoje, 'yyyy-MM-dd');
     
     const dataInicioSinc = dataInicio || defaultDataInicio;
     const dataFimSinc = dataFim || defaultDataFim;
     
+    // Validar se o intervalo é maior que 3 meses para versão gratuita
+    const inicio = new Date(dataInicioSinc);
+    const fim = new Date(dataFimSinc);
+    
+    // Verificar o plano do usuário
+    const planoResult = await pool.query(
+      `SELECT tipo_plano FROM planos_usuarios WHERE user_id = $1`,
+      [userId]
+    );
+    
+    const isPremium = planoResult.rows.length > 0 && planoResult.rows[0].tipo_plano === 'premium';
+    
+    if (!isPremium) {
+      // Verificar se o intervalo é maior que 3 meses
+      const diffMonths = (fim.getFullYear() - inicio.getFullYear()) * 12 + fim.getMonth() - inicio.getMonth();
+      
+      if (diffMonths > 3) {
+        return res.status(400).json({
+          success: false,
+          message: 'A versão gratuita permite sincronização de dados de até 3 meses. Faça upgrade para o plano Premium para períodos maiores.'
+        });
+      }
+    }
+    
     // Obter configurações da API
     const configResult = await pool.query(
-      `SELECT empresa_principal, codigo, chave
+      `SELECT codigo, chave
        FROM api_configurations
        WHERE user_id = $1 AND api_type = 'absenteismo'`,
       [userId]
@@ -79,85 +107,111 @@ exports.syncAbsenteismo = async (req, res, next) => {
     const config = configResult.rows[0];
     
     // Verificar se as configurações estão completas
-    if (!config.empresa_principal || !config.codigo || !config.chave) {
+    if (!config.codigo || !config.chave) {
       return res.status(400).json({
         success: false,
         message: 'Configurações da API de absenteísmo incompletas'
       });
     }
     
-    // Preparar parâmetros para requisição à API SOC
-    const parametros = {
-      empresa: config.empresa_principal,
-      codigo: config.codigo,
-      chave: config.chave,
-      tipoSaida: 'json',
-      dataInicio: dataInicioSinc,
-      dataFim: dataFimSinc
-    };
+    let empresas = [];
     
-    // Adicionar filtro de empresa se especificado
-    if (empresaId) {
-      parametros.empresaTrabalho = empresaId;
+    // Se não foi especificada uma empresa, buscar todas as empresas do usuário
+    if (!empresaId) {
+      const empresasResult = await pool.query(
+        `SELECT codigo FROM empresas WHERE user_id = $1 AND ativo = true`,
+        [userId]
+      );
+      
+      if (empresasResult.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Nenhuma empresa encontrada. Por favor, sincronize as empresas primeiro.'
+        });
+      }
+      
+      empresas = empresasResult.rows;
+    } else {
+      // Se uma empresa foi especificada, usar apenas ela
+      empresas = [{ codigo: empresaId }];
     }
-    
-    // Fazer requisição à API SOC
-    const absenteismoData = await apiConfigController.requestSocApi(parametros);
     
     // Iniciar transação
     const client = await pool.connect();
+    let totalInserted = 0;
     
     try {
       await client.query('BEGIN');
       
-      // Limpar dados existentes no período
+      // Limpar dados existentes no período para todas as empresas que serão processadas
+      const empresaCodigos = empresas.map(emp => emp.codigo);
+      
       await client.query(
         `DELETE FROM absenteismo
          WHERE user_id = $1
            AND dt_inicio_atestado >= $2
-           AND dt_inicio_atestado <= $3`,
-        [userId, dataInicioSinc, dataFimSinc]
+           AND dt_inicio_atestado <= $3
+           AND matricula_func IN (
+             SELECT matricula_funcionario FROM funcionarios 
+             WHERE user_id = $1 AND codigo_empresa = ANY($4)
+           )`,
+        [userId, dataInicioSinc, dataFimSinc, empresaCodigos]
       );
       
-      let countInserted = 0;
-      
-      for (const absenteismo of absenteismoData) {
-        // Converter datas
-        const dtNascimento = absenteismo.DT_NASCIMENTO ? new Date(absenteismo.DT_NASCIMENTO) : null;
-        const dtInicioAtestado = absenteismo.DT_INICIO_ATESTADO ? new Date(absenteismo.DT_INICIO_ATESTADO) : null;
-        const dtFimAtestado = absenteismo.DT_FIM_ATESTADO ? new Date(absenteismo.DT_FIM_ATESTADO) : null;
+      // Para cada empresa, fazer uma requisição à API SOC
+      for (const empresa of empresas) {
+        // Preparar parâmetros para requisição à API SOC
+        const parametros = {
+          empresa: empresa.codigo, // Usar o código da empresa em vez da empresa principal
+          codigo: config.codigo,
+          chave: config.chave,
+          tipoSaida: 'json',
+          dataInicio: dataInicioSinc,
+          dataFim: dataFimSinc
+        };
         
-        // Inserir dados de absenteísmo
-        await client.query(
-          `INSERT INTO absenteismo (
-             user_id, unidade, setor, matricula_func, dt_nascimento, sexo,
-             tipo_atestado, dt_inicio_atestado, dt_fim_atestado,
-             hora_inicio_atestado, hora_fim_atestado, dias_afastados,
-             horas_afastado, cid_principal, descricao_cid, grupo_patologico,
-             tipo_licenca
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-          [
-            userId,
-            absenteismo.UNIDADE,
-            absenteismo.SETOR,
-            absenteismo.MATRICULA_FUNC,
-            dtNascimento,
-            absenteismo.SEXO,
-            absenteismo.TIPO_ATESTADO,
-            dtInicioAtestado,
-            dtFimAtestado,
-            absenteismo.HORA_INICIO_ATESTADO,
-            absenteismo.HORA_FIM_ATESTADO,
-            absenteismo.DIAS_AFASTADOS,
-            absenteismo.HORAS_AFASTADO,
-            absenteismo.CID_PRINCIPAL,
-            absenteismo.DESCRICAO_CID,
-            absenteismo.GRUPO_PATOLOGICO,
-            absenteismo.TIPO_LICENCA
-          ]
-        );
+        // Fazer requisição à API SOC
+        const absenteismoData = await apiConfigController.requestSocApi(parametros);
         
-        countInserted++;
+        // Processar os dados de absenteísmo
+        for (const absenteismo of absenteismoData) {
+          // Converter datas
+          const dtNascimento = absenteismo.DT_NASCIMENTO ? new Date(absenteismo.DT_NASCIMENTO) : null;
+          const dtInicioAtestado = absenteismo.DT_INICIO_ATESTADO ? new Date(absenteismo.DT_INICIO_ATESTADO) : null;
+          const dtFimAtestado = absenteismo.DT_FIM_ATESTADO ? new Date(absenteismo.DT_FIM_ATESTADO) : null;
+          
+          // Inserir dados de absenteísmo
+          await client.query(
+            `INSERT INTO absenteismo (
+               user_id, unidade, setor, matricula_func, dt_nascimento, sexo,
+               tipo_atestado, dt_inicio_atestado, dt_fim_atestado,
+               hora_inicio_atestado, hora_fim_atestado, dias_afastados,
+               horas_afastado, cid_principal, descricao_cid, grupo_patologico,
+               tipo_licenca
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+            [
+              userId,
+              absenteismo.UNIDADE,
+              absenteismo.SETOR,
+              absenteismo.MATRICULA_FUNC,
+              dtNascimento,
+              absenteismo.SEXO,
+              absenteismo.TIPO_ATESTADO,
+              dtInicioAtestado,
+              dtFimAtestado,
+              absenteismo.HORA_INICIO_ATESTADO,
+              absenteismo.HORA_FIM_ATESTADO,
+              absenteismo.DIAS_AFASTADOS,
+              absenteismo.HORAS_AFASTADO,
+              absenteismo.CID_PRINCIPAL,
+              absenteismo.DESCRICAO_CID,
+              absenteismo.GRUPO_PATOLOGICO,
+              absenteismo.TIPO_LICENCA
+            ]
+          );
+          
+          totalInserted++;
+        }
       }
       
       await client.query('COMMIT');
@@ -165,7 +219,7 @@ exports.syncAbsenteismo = async (req, res, next) => {
       res.status(200).json({
         success: true,
         message: 'Sincronização de absenteísmo concluída com sucesso',
-        count: countInserted,
+        count: totalInserted,
         periodo: {
           dataInicio: dataInicioSinc,
           dataFim: dataFimSinc
