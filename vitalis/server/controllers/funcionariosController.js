@@ -1,6 +1,9 @@
 const { pool } = require('../db');
 const apiConfigController = require('./apiConfigController');
 
+// Função para criar um delay entre requisições
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 /**
  * Obtém a lista de funcionários
  */
@@ -134,6 +137,9 @@ exports.syncFuncionarios = async (req, res, next) => {
           pendente: config.pendente === 'Sim' ? 'Sim' : '',
           ferias: config.ferias === 'Sim' ? 'Sim' : ''
         };
+        
+        // Adicionar delay para respeitar limite de requisições (3/seg)
+        await delay(350);
         
         // Fazer requisição à API SOC
         const funcionariosData = await apiConfigController.requestSocApi(parametros);
