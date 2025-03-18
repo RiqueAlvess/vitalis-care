@@ -1,39 +1,6 @@
 const { pool } = require('../db');
 const apiConfigController = require('./apiConfigController');
 
-/**
- * Obtém a lista de funcionários do usuário
- */
-exports.getFuncionarios = async (req, res, next) => {
-  try {
-    const userId = req.user.id;
-    const { empresaId } = req.query;
-    
-    let query = `
-      SELECT * FROM funcionarios 
-      WHERE user_id = $1
-    `;
-    
-    const params = [userId];
-    
-    if (empresaId) {
-      query += ` AND codigo_empresa = $2`;
-      params.push(empresaId);
-    }
-    
-    query += ` ORDER BY nome`;
-    
-    const result = await pool.query(query, params);
-    
-    res.status(200).json(result.rows);
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Sincroniza dados de funcionários com a API SOC
- */
 exports.syncFuncionarios = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -41,7 +8,8 @@ exports.syncFuncionarios = async (req, res, next) => {
     
     // Obter configurações da API
     const configResult = await pool.query(
-      `SELECT empresa_principal, codigo, chave
+      `SELECT codigo, chave, 
+              ativo, inativo, afastado, pendente, ferias
        FROM api_configurations
        WHERE user_id = $1 AND api_type = 'funcionario'`,
       [userId]
@@ -60,7 +28,7 @@ exports.syncFuncionarios = async (req, res, next) => {
     if (!config.codigo || !config.chave) {
       return res.status(400).json({
         success: false,
-        message: 'Configurações da API de funcionários incompletas'
+        message: 'Código e chave da API são obrigatórios'
       });
     }
     
@@ -98,11 +66,15 @@ exports.syncFuncionarios = async (req, res, next) => {
       for (const empresa of empresas) {
         // Preparar parâmetros para requisição à API SOC
         const parametros = {
-          empresa: empresa.codigo, // Usar o código da empresa em vez da empresa principal
+          empresa: empresa.codigo,
           codigo: config.codigo,
           chave: config.chave,
           tipoSaida: 'json',
-          ativo: 'Sim'
+          ativo: config.ativo === 'Sim' ? 'Sim' : '',
+          inativo: config.inativo === 'Sim' ? 'Sim' : '',
+          afastado: config.afastado === 'Sim' ? 'Sim' : '',
+          pendente: config.pendente === 'Sim' ? 'Sim' : '',
+          ferias: config.ferias === 'Sim' ? 'Sim' : ''
         };
         
         // Fazer requisição à API SOC
@@ -235,31 +207,5 @@ exports.syncFuncionarios = async (req, res, next) => {
       message: 'Erro ao sincronizar funcionários',
       error: error.message
     });
-  }
-};
-
-/**
- * Busca um funcionário específico
- */
-exports.getFuncionario = async (req, res, next) => {
-  try {
-    const userId = req.user.id;
-    const funcionarioId = req.params.id;
-    
-    const result = await pool.query(
-      `SELECT * FROM funcionarios
-       WHERE user_id = $1 AND id = $2`,
-      [userId, funcionarioId]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: 'Funcionário não encontrado'
-      });
-    }
-    
-    res.status(200).json(result.rows[0]);
-  } catch (error) {
-    next(error);
   }
 };
