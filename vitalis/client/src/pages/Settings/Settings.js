@@ -1232,7 +1232,6 @@ const Settings = () => {
               </Grid>
             </TabPanel>
           </Paper>
-          </Container>
           
           {/* Notificações */}
           <Snackbar
@@ -1287,6 +1286,7 @@ const Settings = () => {
           </Box>
         )}
       </div>
+    </Container>
     );
   }
 
