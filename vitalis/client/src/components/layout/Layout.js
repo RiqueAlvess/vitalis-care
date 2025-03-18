@@ -13,6 +13,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import BusinessIcon from '@mui/icons-material/Business';
 import PeopleIcon from '@mui/icons-material/People';
 import InsightsIcon from '@mui/icons-material/Insights';
+import SyncIcon from '@mui/icons-material/Sync';
 import { useAuth } from '../../context/AuthContext';
 
 const drawerWidth = 240;
@@ -101,6 +102,11 @@ const Layout = () => {
       icon: <InsightsIcon /> 
     },
     { 
+      path: '/sync-monitor', 
+      label: 'Monitor de Sincronização', 
+      icon: <SyncIcon /> 
+    },
+    { 
       path: '/settings', 
       label: 'Configurações', 
       icon: <SettingsIcon /> 
@@ -167,6 +173,7 @@ const Layout = () => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             {getPageTitle()}
           </Typography>
+          
           <IconButton
             size="large"
             edge="end"
