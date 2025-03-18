@@ -627,21 +627,7 @@ const Settings = () => {
                   </Box>
                   
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Empresa Principal"
-                        variant="outlined"
-                        value={configurations.funcionario.empresa_principal}
-                        onChange={(e) => handleInputChange('funcionario', 'empresa_principal', e.target.value)}
-                        margin="normal"
-                        required
-                        error={errors.funcionario.empresa_principal}
-                        helperText={errors.funcionario.empresa_principal ? "Campo obrigatório" : ""}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Código"
@@ -651,11 +637,11 @@ const Settings = () => {
                         margin="normal"
                         required
                         error={errors.funcionario.codigo}
-                        helperText={errors.funcionario.codigo ? "Campo obrigatório" : ""}
+                        helperText={errors.funcionario.codigo ? "Código é obrigatório" : "Código de acesso à API SOC"}
                       />
                     </Grid>
                     
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Chave"
@@ -665,20 +651,19 @@ const Settings = () => {
                         margin="normal"
                         required
                         error={errors.funcionario.chave}
-                        helperText={errors.funcionario.chave ? "Campo obrigatório" : ""}
+                        helperText={errors.funcionario.chave ? "Chave é obrigatória" : "Chave de segurança da API SOC"}
                       />
                     </Grid>
-                    
                     <Grid item xs={12}>
                       <Divider sx={{ my: 2 }} />
                       <Typography variant="subtitle1" gutterBottom>
-                        Filtros opcionais
+                        Filtros para importação de funcionários
                       </Typography>
                       <FormGroup row>
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={configurations.funcionario.ativo}
+                              checked={configurations.funcionario.ativo === true}
                               onChange={(e) => handleInputChange('funcionario', 'ativo', e.target.checked)}
                               name="ativo"
                             />
@@ -688,7 +673,7 @@ const Settings = () => {
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={configurations.funcionario.inativo}
+                              checked={configurations.funcionario.inativo === true}
                               onChange={(e) => handleInputChange('funcionario', 'inativo', e.target.checked)}
                               name="inativo"
                             />
@@ -698,7 +683,7 @@ const Settings = () => {
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={configurations.funcionario.afastado}
+                              checked={configurations.funcionario.afastado === true}
                               onChange={(e) => handleInputChange('funcionario', 'afastado', e.target.checked)}
                               name="afastado"
                             />
@@ -708,7 +693,7 @@ const Settings = () => {
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={configurations.funcionario.pendente}
+                              checked={configurations.funcionario.pendente === true}
                               onChange={(e) => handleInputChange('funcionario', 'pendente', e.target.checked)}
                               name="pendente"
                             />
@@ -718,7 +703,7 @@ const Settings = () => {
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={configurations.funcionario.ferias}
+                              checked={configurations.funcionario.ferias === true}
                               onChange={(e) => handleInputChange('funcionario', 'ferias', e.target.checked)}
                               name="ferias"
                             />
@@ -726,7 +711,10 @@ const Settings = () => {
                           label="Férias"
                         />
                       </FormGroup>
-                      <FormHelperText>Selecione os status de funcionários que deseja importar</FormHelperText>
+                      <FormHelperText>
+                        Selecione os status de funcionários que deseja importar. 
+                        Por padrão, são importados apenas funcionários ativos.
+                      </FormHelperText>
                     </Grid>
                   </Grid>
                 </CardContent>
