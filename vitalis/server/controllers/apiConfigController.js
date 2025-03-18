@@ -117,19 +117,27 @@ exports.saveConfiguration = async (req, res, next) => {
       // Se for API de funcionário, adicionar campos específicos
       if (apiType === 'funcionario') {
         const { ativo, inativo, afastado, pendente, ferias } = config;
+        
+        // Converter valores booleanos para strings esperadas pela API
+        const ativoValue = ativo === true || ativo === 'true' || ativo === 'Sim';
+        const inativoValue = inativo === true || inativo === 'true' || inativo === 'Sim';
+        const afastadoValue = afastado === true || afastado === 'true' || afastado === 'Sim';
+        const pendenteValue = pendente === true || pendente === 'true' || pendente === 'Sim';
+        const feriasValue = ferias === true || ferias === 'true' || ferias === 'Sim';
+        
         insertQuery = `
           INSERT INTO api_configurations (
-            user_id, api_type, codigo, chave,
+            user_id, api_type, empresa_principal, codigo, chave,
             ativo, inativo, afastado, pendente, ferias
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         `;
         
-        insertParams.splice(0, 2, codigo, chave, 
-          ativo === true ? 'Sim' : '', 
-          inativo === true ? 'Sim' : '', 
-          afastado === true ? 'Sim' : '', 
-          pendente === true ? 'Sim' : '', 
-          ferias === true ? 'Sim' : ''
+        insertParams.push(
+          ativoValue ? 'Sim' : '', 
+          inativoValue ? 'Sim' : '', 
+          afastadoValue ? 'Sim' : '', 
+          pendenteValue ? 'Sim' : '', 
+          feriasValue ? 'Sim' : ''
         );
       }
       
@@ -138,23 +146,32 @@ exports.saveConfiguration = async (req, res, next) => {
       // Atualizar registro existente
       let updateQuery = `
         UPDATE api_configurations
-        SET codigo = $1, 
-            chave = $2,
+        SET empresa_principal = $1,
+            codigo = $2, 
+            chave = $3,
             updated_at = CURRENT_TIMESTAMP
       `;
       
-      const updateParams = [codigo, chave, userId, apiType];
+      const updateParams = [empresa_principal, codigo, chave, userId, apiType];
       
       // Se for API de funcionário, atualizar campos específicos
       if (apiType === 'funcionario') {
         const { ativo, inativo, afastado, pendente, ferias } = config;
-        updateQuery += `, ativo = $3, inativo = $4, afastado = $5, pendente = $6, ferias = $7`;
-        updateParams.splice(2, 0, 
-          ativo === true ? 'Sim' : '', 
-          inativo === true ? 'Sim' : '', 
-          afastado === true ? 'Sim' : '', 
-          pendente === true ? 'Sim' : '', 
-          ferias === true ? 'Sim' : ''
+        
+        // Converter valores booleanos para strings esperadas pela API
+        const ativoValue = ativo === true || ativo === 'true' || ativo === 'Sim';
+        const inativoValue = inativo === true || inativo === 'true' || inativo === 'Sim';
+        const afastadoValue = afastado === true || afastado === 'true' || afastado === 'Sim';
+        const pendenteValue = pendente === true || pendente === 'true' || pendente === 'Sim';
+        const feriasValue = ferias === true || ferias === 'true' || ferias === 'Sim';
+        
+        updateQuery += `, ativo = $4, inativo = $5, afastado = $6, pendente = $7, ferias = $8`;
+        updateParams.splice(3, 0, 
+          ativoValue ? 'Sim' : '', 
+          inativoValue ? 'Sim' : '', 
+          afastadoValue ? 'Sim' : '', 
+          pendenteValue ? 'Sim' : '', 
+          feriasValue ? 'Sim' : ''
         );
       }
       
@@ -168,6 +185,7 @@ exports.saveConfiguration = async (req, res, next) => {
     
     // Preparar resposta
     const responseConfig = {
+      empresa_principal,
       codigo,
       chave
     };
@@ -175,11 +193,11 @@ exports.saveConfiguration = async (req, res, next) => {
     // Adicionar campos específicos na resposta
     if (apiType === 'funcionario') {
       const { ativo, inativo, afastado, pendente, ferias } = config;
-      responseConfig.ativo = ativo === true;
-      responseConfig.inativo = inativo === true;
-      responseConfig.afastado = afastado === true;
-      responseConfig.pendente = pendente === true;
-      responseConfig.ferias = ferias === true;
+      responseConfig.ativo = ativo === true || ativo === 'true' || ativo === 'Sim';
+      responseConfig.inativo = inativo === true || inativo === 'true' || inativo === 'Sim';
+      responseConfig.afastado = afastado === true || afastado === 'true' || afastado === 'Sim';
+      responseConfig.pendente = pendente === true || pendente === 'true' || pendente === 'Sim';
+      responseConfig.ferias = ferias === true || ferias === 'true' || ferias === 'Sim';
     }
     
     res.status(200).json({ 
