@@ -30,29 +30,28 @@ const Settings = () => {
   
   // Configurações de APIs
   const [configurations, setConfigurations] = useState({
-    empresa: {
-      empresa_principal: '',
-      codigo: '',
-      chave: ''
-    },
-    funcionario: {
-      empresa_principal: '',
-      codigo: '',
-      chave: '',
-      ativo: true,
-      inativo: false,
-      afastado: false,
-      pendente: false,
-      ferias: false
-    },
-    absenteismo: {
-      empresa_principal: '',
-      codigo: '',
-      chave: '',
-      dataInicio: format(subMonths(new Date(), 2), 'yyyy-MM-dd'),
-      dataFim: format(new Date(), 'yyyy-MM-dd')
-    }
-  });
+  empresa: {
+    empresa_principal: '',
+    codigo: '',
+    chave: ''
+  },
+  funcionario: {
+    codigo: '',
+    chave: '',
+    ativo: true,  // Por padrão, ativo é true
+    inativo: false,
+    afastado: false,
+    pendente: false,
+    ferias: false
+  },
+  absenteismo: {
+    empresa_principal: '',
+    codigo: '',
+    chave: '',
+    dataInicio: format(subMonths(new Date(), 2), 'yyyy-MM-dd'),
+    dataFim: format(new Date(), 'yyyy-MM-dd')
+  }
+});
 
   // Validação de campos obrigatórios
   const [errors, setErrors] = useState({
@@ -190,25 +189,27 @@ const Settings = () => {
     const config = configurations[apiType];
     const newErrors = { ...errors[apiType] };
     let isValid = true;
-
-    // Validar campos comuns obrigatórios
-    ['empresa_principal', 'codigo', 'chave'].forEach(field => {
-      if (!config[field]) {
-        newErrors[field] = true;
-        isValid = false;
-      } else {
-        newErrors[field] = false;
-      }
-    });
+  
+    if (apiType === 'funcionario') {
+      // Validar campos de código e chave
+      ['codigo', 'chave'].forEach(field => {
+        if (!config[field]) {
+          newErrors[field] = true;
+          isValid = false;
+        } else {
+          newErrors[field] = false;
+        }
+      });
+    }
 
     // Atualizar erros
-    setErrors(prev => ({
-      ...prev,
-      [apiType]: newErrors
-    }));
+   setErrors(prev => ({
+  ...prev,
+  [apiType]: newErrors
+}));
 
-    return isValid;
-  };
+return isValid;
+};
   
   const handleSaveConfig = async (apiType) => {
     try {
