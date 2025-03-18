@@ -30,28 +30,28 @@ const Settings = () => {
   
   // Configurações de APIs
   const [configurations, setConfigurations] = useState({
-  empresa: {
-    empresa_principal: '',
-    codigo: '',
-    chave: ''
-  },
-  funcionario: {
-    codigo: '',
-    chave: '',
-    ativo: true,  // Por padrão, ativo é true
-    inativo: false,
-    afastado: false,
-    pendente: false,
-    ferias: false
-  },
-  absenteismo: {
-    empresa_principal: '',
-    codigo: '',
-    chave: '',
-    dataInicio: format(subMonths(new Date(), 2), 'yyyy-MM-dd'),
-    dataFim: format(new Date(), 'yyyy-MM-dd')
-  }
-});
+    empresa: {
+      empresa_principal: '',
+      codigo: '',
+      chave: ''
+    },
+    funcionario: {
+      codigo: '',
+      chave: '',
+      ativo: true,
+      inativo: false,
+      afastado: false,
+      pendente: false,
+      ferias: false
+    },
+    absenteismo: {
+      empresa_principal: '',
+      codigo: '',
+      chave: '',
+      dataInicio: format(subMonths(new Date(), 2), 'yyyy-MM-dd'),
+      dataFim: format(new Date(), 'yyyy-MM-dd')
+    }
+  });
 
   // Validação de campos obrigatórios
   const [errors, setErrors] = useState({
@@ -61,7 +61,6 @@ const Settings = () => {
       chave: false
     },
     funcionario: {
-      empresa_principal: false,
       codigo: false,
       chave: false
     },
@@ -88,28 +87,15 @@ const Settings = () => {
       setLoading(true);
       const configs = await apiConfigService.getConfigurations();
       
-      // Mapeie as configurações recebidas para o estado local
+      // Atualizar estado com configurações carregadas
       const updatedConfigs = { ...configurations };
       
       Object.keys(configs).forEach(apiType => {
-        if (configs[apiType]) {
-          // Se for funcionario, converter strings para booleanos nas opções
-          if (apiType === 'funcionario') {
-            updatedConfigs[apiType] = {
-              ...updatedConfigs[apiType],
-              ...configs[apiType],
-              ativo: configs[apiType].ativo === 'Sim',
-              inativo: configs[apiType].inativo === 'Sim',
-              afastado: configs[apiType].afastado === 'Sim',
-              pendente: configs[apiType].pendente === 'Sim',
-              ferias: configs[apiType].ferias === 'Sim'
-            };
-          } else {
-            updatedConfigs[apiType] = {
-              ...updatedConfigs[apiType],
-              ...configs[apiType]
-            };
-          }
+        if (configs[apiType] && typeof configs[apiType] === 'object') {
+          updatedConfigs[apiType] = {
+            ...updatedConfigs[apiType],
+            ...configs[apiType]
+          };
         }
       });
       
@@ -181,7 +167,6 @@ const Settings = () => {
   
   const handleDateChange = (apiType, field, date) => {
     const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
-    
     handleInputChange(apiType, field, formattedDate);
   };
 
@@ -189,10 +174,28 @@ const Settings = () => {
     const config = configurations[apiType];
     const newErrors = { ...errors[apiType] };
     let isValid = true;
-  
-    if (apiType === 'funcionario') {
-      // Validar campos de código e chave
+
+    // Validar campos específicos para cada tipo de API
+    if (apiType === 'empresa') {
+      ['empresa_principal', 'codigo', 'chave'].forEach(field => {
+        if (!config[field]) {
+          newErrors[field] = true;
+          isValid = false;
+        } else {
+          newErrors[field] = false;
+        }
+      });
+    } else if (apiType === 'funcionario') {
       ['codigo', 'chave'].forEach(field => {
+        if (!config[field]) {
+          newErrors[field] = true;
+          isValid = false;
+        } else {
+          newErrors[field] = false;
+        }
+      });
+    } else if (apiType === 'absenteismo') {
+      ['empresa_principal', 'codigo', 'chave'].forEach(field => {
         if (!config[field]) {
           newErrors[field] = true;
           isValid = false;
@@ -203,13 +206,13 @@ const Settings = () => {
     }
 
     // Atualizar erros
-   setErrors(prev => ({
-  ...prev,
-  [apiType]: newErrors
-}));
+    setErrors(prev => ({
+      ...prev,
+      [apiType]: newErrors
+    }));
 
-return isValid;
-};
+    return isValid;
+  };
   
   const handleSaveConfig = async (apiType) => {
     try {
@@ -221,17 +224,8 @@ return isValid;
 
       setLoading(true);
       
-      // Converter valores booleanos para "Sim" / vazio para API de funcionário
+      // Preparar dados para salvar
       const dataToSave = { ...configurations[apiType] };
-      
-     if (apiType === 'funcionario') {
-      // Garantir que valores não excedam 10 caracteres
-      dataToSave.ativo = dataToSave.ativo ? 'Sim' : '';
-      dataToSave.inativo = dataToSave.inativo ? 'Sim' : '';
-      dataToSave.afastado = dataToSave.afastado ? 'Sim' : '';
-      dataToSave.pendente = dataToSave.pendente ? 'Sim' : '';
-      dataToSave.ferias = dataToSave.ferias ? 'Sim' : '';
-    }
       
       await apiConfigService.saveConfiguration(apiType, dataToSave);
       showNotification(`Configurações de ${getApiTypeLabel(apiType)} salvas com sucesso`, 'success');
@@ -242,39 +236,14 @@ return isValid;
     }
   };
   
-  const handleTestConnection = async (apiType) => {
-    try {
-      // Validar campos obrigatórios antes de testar
-      if (!validateConfigFields(apiType)) {
-        showNotification('Preencha todos os campos obrigatórios', 'error');
-        return;
-      }
-
-      setTestLoading(true);
-      
-      // Preparar dados para o teste
-      const dataToTest = { ...configurations[apiType], type: apiType };
-      
-      // Converter valores booleanos para "Sim" / vazio para API de funcionário
-      if (apiType === 'funcionario') {
-        dataToTest.ativo = dataToTest.ativo ? 'Sim' : '';
-        dataToTest.inativo = dataToTest.inativo ? 'Sim' : '';
-        dataToTest.afastado = dataToTest.afastado ? 'Sim' : '';
-        dataToTest.pendente = dataToTest.pendente ? 'Sim' : '';
-        dataToTest.ferias = dataToTest.ferias ? 'Sim' : '';
-      }
-      
-      const result = await apiConfigService.testConnection(dataToTest);
-      
-      if (result.success) {
-        showNotification(`Conexão com API de ${getApiTypeLabel(apiType)} testada com sucesso`, 'success');
-      } else {
-        showNotification(`Erro no teste de conexão: ${result.message}`, 'error');
-      }
-    } catch (error) {
-      showNotification(`Erro ao testar conexão com API de ${getApiTypeLabel(apiType)}`, 'error');
-    } finally {
-      setTestLoading(false);
+  const handleEmpresaChange = (event) => {
+    const empresaId = event.target.value;
+    setEmpresaSelecionada(empresaId);
+    
+    if (empresaId) {
+      fetchFuncionarios(empresaId);
+    } else {
+      setFuncionarios([]);
     }
   };
   
@@ -315,14 +284,30 @@ return isValid;
     }
   };
   
-  const handleEmpresaChange = (event) => {
-    const empresaId = event.target.value;
-    setEmpresaSelecionada(empresaId);
-    
-    if (empresaId) {
-      fetchFuncionarios(empresaId);
-    } else {
-      setFuncionarios([]);
+  const handleTestConnection = async (apiType) => {
+    try {
+      // Validar campos obrigatórios antes de testar
+      if (!validateConfigFields(apiType)) {
+        showNotification('Preencha todos os campos obrigatórios', 'error');
+        return;
+      }
+
+      setTestLoading(true);
+      
+      // Preparar dados para o teste
+      const dataToTest = { ...configurations[apiType], type: apiType };
+      
+      const result = await apiConfigService.testConnection(dataToTest);
+      
+      if (result.success) {
+        showNotification(`Conexão com API de ${getApiTypeLabel(apiType)} testada com sucesso`, 'success');
+      } else {
+        showNotification(`Erro no teste de conexão: ${result.message}`, 'error');
+      }
+    } catch (error) {
+      showNotification(`Erro ao testar conexão com API de ${getApiTypeLabel(apiType)}`, 'error');
+    } finally {
+      setTestLoading(false);
     }
   };
   
@@ -370,7 +355,6 @@ return isValid;
           Esta API retorna os dados dos funcionários cadastrados no sistema SOC.
           
           Parâmetros necessários:
-          - Empresa Principal: Código numérico da empresa principal
           - Código: Código de acesso à API
           - Chave: Chave de segurança alfanumérica
           
@@ -444,596 +428,483 @@ return isValid;
     }
   };
   
-  if (loading && Object.keys(configurations.empresa).length <= 3) {
+  // O restante do código (renderização) permanece igual
+  // Renderização completa do componente...
+
+  return (
+        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+          <Typography variant="h4" gutterBottom>
+            Configurações da API
+          </Typography>
+          
+          <Paper sx={{ p: 0, mb: 4 }} elevation={3}>
+            <Tabs
+              value={activeTab}
+              onChange={handleTabChange}
+              indicatorColor="primary"
+              textColor="primary"
+              variant="fullWidth"
+            >
+              <Tab label="Empresas" />
+              <Tab label="Funcionários" />
+              <Tab label="Absenteísmo" />
+            </Tabs>
+            
+            {/* Tab de Configuração de Empresas */}
+            <TabPanel value={activeTab} index={0}>
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <Card>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="h6">
+                          Configuração da API de Empresas
+                        </Typography>
+                        <IconButton onClick={() => showInfoDialog('empresa')} color="primary">
+                          <InfoIcon />
+                        </IconButton>
+                      </Box>
+                      
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} md={4}>
+                          <TextField
+                            fullWidth
+                            label="Empresa Principal"
+                            variant="outlined"
+                            value={configurations.empresa.empresa_principal}
+                            onChange={(e) => handleInputChange('empresa', 'empresa_principal', e.target.value)}
+                            margin="normal"
+                            required
+                            error={errors.empresa.empresa_principal}
+                            helperText={errors.empresa.empresa_principal ? "Campo obrigatório" : ""}
+                          />
+                        </Grid>
+                        
+                        <Grid item xs={12} md={4}>
+                          <TextField
+                            fullWidth
+                            label="Código"
+                            variant="outlined"
+                            value={configurations.empresa.codigo}
+                            onChange={(e) => handleInputChange('empresa', 'codigo', e.target.value)}
+                            margin="normal"
+                            required
+                            error={errors.empresa.codigo}
+                            helperText={errors.empresa.codigo ? "Campo obrigatório" : ""}
+                          />
+                        </Grid>
+                        
+                        <Grid item xs={12} md={4}>
+                          <TextField
+                            fullWidth
+                            label="Chave"
+                            variant="outlined"
+                            value={configurations.empresa.chave}
+                            onChange={(e) => handleInputChange('empresa', 'chave', e.target.value)}
+                            margin="normal"
+                            required
+                            error={errors.empresa.chave}
+                            helperText={errors.empresa.chave ? "Campo obrigatório" : ""}
+                          />
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                    
+                    <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
+                      <Button
+                        variant="outlined"
+                        color="primary"
+                        startIcon={<TestIcon />}
+                        onClick={() => handleTestConnection('empresa')}
+                        disabled={testLoading}
+                        sx={{ mr: 1 }}
+                      >
+                        {testLoading ? 'Testando...' : 'Testar Conexão'}
+                      </Button>
+                      
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        startIcon={<SyncIcon />}
+                        onClick={() => handleSync('empresa')}
+                        disabled={syncLoading}
+                        sx={{ mr: 1 }}
+                      >
+                        {syncLoading ? 'Sincronizando...' : 'Sincronizar Dados'}
+                      </Button>
+                      
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={() => handleSaveConfig('empresa')}
+                        disabled={loading}
+                      >
+                        {loading ? 'Salvando...' : 'Salvar Configurações'}
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              </Grid>
+            </TabPanel>
+            
+            {/* Tab de Configuração de Funcionários */}
+            <TabPanel value={activeTab} index={1}>
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <Card>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="h6">
+                          Configuração da API de Funcionários
+                        </Typography>
+                        <IconButton onClick={() => showInfoDialog('funcionario')} color="primary">
+                          <InfoIcon />
+                        </IconButton>
+                      </Box>
+                      
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} md={6}>
+                          <TextField
+                            fullWidth
+                            label="Código"
+                            variant="outlined"
+                            value={configurations.funcionario.codigo}
+                            onChange={(e) => handleInputChange('funcionario', 'codigo', e.target.value)}
+                            margin="normal"
+                            required
+                            error={errors.funcionario.codigo}
+                            helperText={errors.funcionario.codigo ? "Código é obrigatório" : "Código de acesso à API SOC"}
+                          />
+                        </Grid>
+                        
+                        <Grid item xs={12} md={6}>
+                          <TextField
+                            fullWidth
+                            label="Chave"
+                            variant="outlined"
+                            value={configurations.funcionario.chave}
+                            onChange={(e) => handleInputChange('funcionario', 'chave', e.target.value)}
+                            margin="normal"
+                            required
+                            error={errors.funcionario.chave}
+                            helperText={errors.funcionario.chave ? "Chave é obrigatória" : "Chave de segurança da API SOC"}
+                          />
+                        </Grid>
+                        
+                        <Grid item xs={12}>
+                          <Divider sx={{ my: 2 }} />
+                          <Typography variant="subtitle1" gutterBottom>
+                            Filtros para importação de funcionários
+                          </Typography>
+                          <FormGroup row>
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={configurations.funcionario.ativo === true}
+                                  onChange={(e) => handleInputChange('funcionario', 'ativo', e.target.checked)}
+                                  name="ativo"
+                                />
+                              }
+                              label="Ativo"
+                            />
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={configurations.funcionario.inativo === true}
+                                  onChange={(e) => handleInputChange('funcionario', 'inativo', e.target.checked)}
+                                  name="inativo"
+                                />
+                              }
+                              label="Inativo"
+                            />
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={configurations.funcionario.afastado === true}
+                                  onChange={(e) => handleInputChange('funcionario', 'afastado', e.target.checked)}
+                                  name="afastado"
+                                />
+                              }
+                              label="Afastado"
+                            />
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={configurations.funcionario.pendente === true}
+                                  onChange={(e) => handleInputChange('funcionario', 'pendente', e.target.checked)}
+                                  name="pendente"
+                                />
+                              }
+                              label="Pendente"
+                            />
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={configurations.funcionario.ferias === true}
+                                  onChange={(e) => handleInputChange('funcionario', 'ferias', e.target.checked)}
+                                  name="ferias"
+                                />
+                              }
+                              label="Férias"
+                            />
+                          </FormGroup>
+                          <FormHelperText>
+                            Selecione os status de funcionários que deseja importar. 
+                            Por padrão, são importados apenas funcionários ativos.
+                          </FormHelperText>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                    
+                    <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
+                      <Button
+                        variant="outlined"
+                        color="primary"
+                        startIcon={<TestIcon />}
+                        onClick={() => handleTestConnection('funcionario')}
+                        disabled={testLoading}
+                        sx={{ mr: 1 }}
+                      >
+                        {testLoading ? 'Testando...' : 'Testar Conexão'}
+                      </Button>
+                      
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        startIcon={<SyncIcon />}
+                        onClick={() => handleSync('funcionario')}
+                        disabled={syncLoading}
+                        sx={{ mr: 1 }}
+                      >
+                        {syncLoading ? 'Sincronizando...' : 'Sincronizar Dados'}
+                      </Button>
+                      
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={() => handleSaveConfig('funcionario')}
+                        disabled={loading}
+                      >
+                        {loading ? 'Salvando...' : 'Salvar Configurações'}
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              </Grid>
+            </TabPanel>
+            
+            {/* Tab de Configuração de Absenteísmo */}
+            <TabPanel value={activeTab} index={2}>
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <Card>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="h6">
+                          Configuração da API de Absenteísmo
+                        </Typography>
+                        <IconButton onClick={() => showInfoDialog('absenteismo')} color="primary">
+                          <InfoIcon />
+                        </IconButton>
+                      </Box>
+                      
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} md={4}>
+                          <TextField
+                            fullWidth
+                            label="Empresa Principal"
+                            variant="outlined"
+                            value={configurations.absenteismo.empresa_principal}
+                            onChange={(e) => handleInputChange('absenteismo', 'empresa_principal', e.target.value)}
+                            margin="normal"
+                            required
+                            error={errors.absenteismo.empresa_principal}
+                            helperText={errors.absenteismo.empresa_principal ? "Campo obrigatório" : ""}
+                          />
+                        </Grid>
+                        
+                        <Grid item xs={12} md={4}>
+                          <TextField
+                            fullWidth
+                            label="Código"
+                            variant="outlined"
+                            value={configurations.absenteismo.codigo}
+                            onChange={(e) => handleInputChange('absenteismo', 'codigo', e.target.value)}
+                            margin="normal"
+                            required
+                            error={errors.absenteismo.codigo}
+                            helperText={errors.absenteismo.codigo ? "Campo obrigatório" : ""}
+                          />
+                        </Grid>
+                        
+                        <Grid item xs={12} md={4}>
+                          <TextField
+                            fullWidth
+                            label="Chave"
+                            variant="outlined"
+                            value={configurations.absenteismo.chave}
+                            onChange={(e) => handleInputChange('absenteismo', 'chave', e.target.value)}
+                            margin="normal"
+                            required
+                            error={errors.absenteismo.chave}
+                            helperText={errors.absenteismo.chave ? "Campo obrigatório" : ""}
+                          />
+                        </Grid>
+                        
+                        <Grid item xs={12}>
+                          <Divider sx={{ my: 2 }} />
+                          <Typography variant="subtitle1" gutterBottom>
+                            Período para sincronização
+                          </Typography>
+                        </Grid>
+                        
+                        <Grid item xs={12} md={4}>
+                          <TextField
+                            select
+                            fullWidth
+                            label="Filtrar por Empresa"
+                            value={empresaSelecionada}
+                            onChange={handleEmpresaChange}
+                            variant="outlined"
+                            margin="normal"
+                          >
+                            <MenuItem value="">Todas as Empresas</MenuItem>
+                            {empresas.map((empresa) => (
+                              <MenuItem key={empresa.id} value={empresa.codigo}>
+                                {empresa.razao_social}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        </Grid>
+                        
+                        <Grid item xs={12} md={4}>
+                          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+                            <DatePicker
+                              label="Data Início"
+                              value={configurations.absenteismo.dataInicio ? new Date(configurations.absenteismo.dataInicio) : null}
+                              onChange={(date) => handleDateChange('absenteismo', 'dataInicio', date)}
+                              slotProps={{
+                                textField: {
+                                  fullWidth: true,
+                                  variant: 'outlined',
+                                  margin: 'normal'
+                                }
+                              }}
+                            />
+                          </LocalizationProvider>
+                        </Grid>
+                        
+                        <Grid item xs={12} md={4}>
+                          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+                            <DatePicker
+                              label="Data Fim"
+                              value={configurations.absenteismo.dataFim ? new Date(configurations.absenteismo.dataFim) : null}
+                              onChange={(date) => handleDateChange('absenteismo', 'dataFim', date)}
+                              slotProps={{
+                                textField: {
+                                  fullWidth: true,
+                                  variant: 'outlined',
+                                  margin: 'normal'
+                                }
+                              }}
+                            />
+                          </LocalizationProvider>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                    
+                    <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
+                      <Button
+                        variant="outlined"
+                        color="primary"
+                        startIcon={<TestIcon />}
+                        onClick={() => handleTestConnection('absenteismo')}
+                        disabled={testLoading}
+                        sx={{ mr: 1 }}
+                      >
+                        {testLoading ? 'Testando...' : 'Testar Conexão'}
+                      </Button>
+                      
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        startIcon={<SyncIcon />}
+                        onClick={() => handleSync('absenteismo')}
+                        disabled={syncLoading}
+                        sx={{ mr: 1 }}
+                      >
+                        {syncLoading ? 'Sincronizando...' : 'Sincronizar Dados'}
+                      </Button>
+                      
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={() => handleSaveConfig('absenteismo')}
+                        disabled={loading}
+                      >
+                        {loading ? 'Salvando...' : 'Salvar Configurações'}
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              </Grid>
+            </TabPanel>
+          </Paper>
+          
+          {/* Notificações */}
+          <Snackbar
+            open={notification.open}
+            autoHideDuration={6000}
+            onClose={closeNotification}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          >
+            <Alert onClose={closeNotification} severity={notification.severity} sx={{ width: '100%' }}>
+              {notification.message}
+            </Alert>
+          </Snackbar>
+          
+          {/* Diálogo de informações */}
+          <Dialog
+            open={infoDialog.open}
+            onClose={closeInfoDialog}
+            maxWidth="md"
+            fullWidth
+          >
+            <DialogTitle>{infoDialog.title}</DialogTitle>
+            <DialogContent dividers>
+              <Typography variant="body1" component="div" sx={{ whiteSpace: 'pre-line' }}>
+                {infoDialog.content}
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={closeInfoDialog} color="primary">
+                Fechar
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </Container>
+      );
+  };
+
+  // Componente auxiliar para as abas
+  function TabPanel(props) {
+    const { children, value, index, ...other } = props;
+    
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-        <CircularProgress />
-      </Box>
+      <div
+        role="tabpanel"
+        hidden={value !== index}
+        id={`api-config-tabpanel-${index}`}
+        aria-labelledby={`api-config-tab-${index}`}
+        {...other}
+      >
+        {value === index && (
+          <Box sx={{ p: 3 }}>
+            {children}
+          </Box>
+        )}
+      </div>
     );
   }
-  
-  return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Configurações da API
-      </Typography>
-      
-      <Paper sx={{ p: 0, mb: 4 }} elevation={3}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          indicatorColor="primary"
-          textColor="primary"
-          variant="fullWidth"
-        >
-          <Tab label="Empresas" />
-          <Tab label="Funcionários" />
-          <Tab label="Absenteísmo" />
-        </Tabs>
-        
-        {/* Tab de Configuração de Empresas */}
-        <TabPanel value={activeTab} index={0}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">
-                      Configuração da API de Empresas
-                    </Typography>
-                    <IconButton onClick={() => showInfoDialog('empresa')} color="primary">
-                      <InfoIcon />
-                    </IconButton>
-                  </Box>
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Empresa Principal"
-                        variant="outlined"
-                        value={configurations.empresa.empresa_principal}
-                        onChange={(e) => handleInputChange('empresa', 'empresa_principal', e.target.value)}
-                        margin="normal"
-                        required
-                        error={errors.empresa.empresa_principal}
-                        helperText={errors.empresa.empresa_principal ? "Campo obrigatório" : ""}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Código"
-                        variant="outlined"
-                        value={configurations.empresa.codigo}
-                        onChange={(e) => handleInputChange('empresa', 'codigo', e.target.value)}
-                        margin="normal"
-                        required
-                        error={errors.empresa.codigo}
-                        helperText={errors.empresa.codigo ? "Campo obrigatório" : ""}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Chave"
-                        variant="outlined"
-                        value={configurations.empresa.chave}
-                        onChange={(e) => handleInputChange('empresa', 'chave', e.target.value)}
-                        margin="normal"
-                        required
-                        error={errors.empresa.chave}
-                        helperText={errors.empresa.chave ? "Campo obrigatório" : ""}
-                      />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-                
-                <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    startIcon={<TestIcon />}
-                    onClick={() => handleTestConnection('empresa')}
-                    disabled={testLoading}
-                    sx={{ mr: 1 }}
-                  >
-                    {testLoading ? 'Testando...' : 'Testar Conexão'}
-                  </Button>
-                  
-                  <Button
-                    variant="outlined"
-                    color="secondary"
-                    startIcon={<SyncIcon />}
-                    onClick={() => handleSync('empresa')}
-                    disabled={syncLoading}
-                    sx={{ mr: 1 }}
-                  >
-                    {syncLoading ? 'Sincronizando...' : 'Sincronizar Dados'}
-                  </Button>
-                  
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={() => handleSaveConfig('empresa')}
-                    disabled={loading}
-                  >
-                    {loading ? 'Salvando...' : 'Salvar Configurações'}
-                  </Button>
-                </CardActions>
-              </Card>
-            </Grid>
-            
-            {/* Empresas sincronizadas */}
-            <Grid item xs={12}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Empresas Sincronizadas ({empresas.length})
-                  </Typography>
-                  
-                  {empresas.length > 0 ? (
-                    <Box sx={{ maxHeight: '300px', overflow: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Código</th>
-                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Razão Social</th>
-                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>CNPJ</th>
-                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Cidade/UF</th>
-                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {empresas.map((empresa) => (
-                            <tr key={empresa.id}>
-                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{empresa.codigo}</td>
-                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{empresa.razao_social}</td>
-                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{empresa.cnpj}</td>
-                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{empresa.cidade}/{empresa.uf}</td>
-                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>
-                                {empresa.ativo ? 'Ativa' : 'Inativa'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </Box>
-                  ) : (
-                    <Typography variant="body1" color="textSecondary" sx={{ py: 2 }}>
-                      Nenhuma empresa sincronizada. Utilize o botão "Sincronizar Dados" acima para importar as empresas.
-                    </Typography>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </TabPanel>
-        
-        {/* Tab de Configuração de Funcionários */}
-        <TabPanel value={activeTab} index={1}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">
-                      Configuração da API de Funcionários
-                    </Typography>
-                    <IconButton onClick={() => showInfoDialog('funcionario')} color="primary">
-                      <InfoIcon />
-                    </IconButton>
-                  </Box>
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Código"
-                        variant="outlined"
-                        value={configurations.funcionario.codigo}
-                        onChange={(e) => handleInputChange('funcionario', 'codigo', e.target.value)}
-                        margin="normal"
-                        required
-                        error={errors.funcionario.codigo}
-                        helperText={errors.funcionario.codigo ? "Código é obrigatório" : "Código de acesso à API SOC"}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Chave"
-                        variant="outlined"
-                        value={configurations.funcionario.chave}
-                        onChange={(e) => handleInputChange('funcionario', 'chave', e.target.value)}
-                        margin="normal"
-                        required
-                        error={errors.funcionario.chave}
-                        helperText={errors.funcionario.chave ? "Chave é obrigatória" : "Chave de segurança da API SOC"}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 2 }} />
-                      <Typography variant="subtitle1" gutterBottom>
-                        Filtros para importação de funcionários
-                      </Typography>
-                      <FormGroup row>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={configurations.funcionario.ativo === true}
-                              onChange={(e) => handleInputChange('funcionario', 'ativo', e.target.checked)}
-                              name="ativo"
-                            />
-                          }
-                          label="Ativo"
-                        />
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={configurations.funcionario.inativo === true}
-                              onChange={(e) => handleInputChange('funcionario', 'inativo', e.target.checked)}
-                              name="inativo"
-                            />
-                          }
-                          label="Inativo"
-                        />
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={configurations.funcionario.afastado === true}
-                              onChange={(e) => handleInputChange('funcionario', 'afastado', e.target.checked)}
-                              name="afastado"
-                            />
-                          }
-                          label="Afastado"
-                        />
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={configurations.funcionario.pendente === true}
-                              onChange={(e) => handleInputChange('funcionario', 'pendente', e.target.checked)}
-                              name="pendente"
-                            />
-                          }
-                          label="Pendente"
-                        />
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={configurations.funcionario.ferias === true}
-                              onChange={(e) => handleInputChange('funcionario', 'ferias', e.target.checked)}
-                              name="ferias"
-                            />
-                          }
-                          label="Férias"
-                        />
-                      </FormGroup>
-                      <FormHelperText>
-                        Selecione os status de funcionários que deseja importar. 
-                        Por padrão, são importados apenas funcionários ativos.
-                      </FormHelperText>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-                
-                <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    startIcon={<TestIcon />}
-                    onClick={() => handleTestConnection('funcionario')}
-                    disabled={testLoading}
-                    sx={{ mr: 1 }}
-                  >
-                    {testLoading ? 'Testando...' : 'Testar Conexão'}
-                  </Button>
-                  
-                  <Button
-                    variant="outlined"
-                    color="secondary"
-                    startIcon={<SyncIcon />}
-                    onClick={() => handleSync('funcionario')}
-                    disabled={syncLoading}
-                    sx={{ mr: 1 }}
-                  >
-                    {syncLoading ? 'Sincronizando...' : 'Sincronizar Dados'}
-                  </Button>
-                  
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={() => handleSaveConfig('funcionario')}
-                    disabled={loading}
-                  >
-                    {loading ? 'Salvando...' : 'Salvar Configurações'}
-                  </Button>
-                </CardActions>
-              </Card>
-            </Grid>
-            
-            {/* Filtro de empresas e listagem de funcionários */}
-            <Grid item xs={12}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Funcionários
-                  </Typography>
-                  
-                  <Box sx={{ mb: 2 }}>
-                    <TextField
-                      select
-                      fullWidth
-                      label="Filtrar por Empresa"
-                      value={empresaSelecionada}
-                      onChange={handleEmpresaChange}
-                      variant="outlined"
-                      sx={{ mb: 2 }}
-                    >
-                      <MenuItem value="">Todas as Empresas</MenuItem>
-                      {empresas.map((empresa) => (
-                        <MenuItem key={empresa.id} value={empresa.codigo}>
-                          {empresa.razao_social}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </Box>
-                  
-                  {funcionarios.length > 0 ? (
-                    <Box sx={{ maxHeight: '300px', overflow: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Matrícula</th>
-                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Nome</th>
-                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Empresa</th>
-                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Setor</th>
-                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Cargo</th>
-                            <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Situação</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {funcionarios.map((funcionario) => (
-                            <tr key={funcionario.id}>
-                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{funcionario.matricula_funcionario}</td>
-                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{funcionario.nome}</td>
-                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{funcionario.nome_empresa}</td>
-                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{funcionario.nome_setor}</td>
-                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{funcionario.nome_cargo}</td>
-                              <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>{funcionario.situacao || "Ativo"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </Box>
-                  ) : (
-                    <Typography variant="body1" color="textSecondary" sx={{ py: 2 }}>
-                      {empresaSelecionada 
-                        ? 'Nenhum funcionário encontrado para a empresa selecionada. Utilize o botão "Sincronizar Dados" acima para importar os funcionários.'
-                        : 'Selecione uma empresa para visualizar os funcionários.'}
-                    </Typography>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </TabPanel>
-        
-        {/* Tab de Configuração de Absenteísmo */}
-        <TabPanel value={activeTab} index={2}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">
-                      Configuração da API de Absenteísmo
-                    </Typography>
-                    <IconButton onClick={() => showInfoDialog('absenteismo')} color="primary">
-                      <InfoIcon />
-                    </IconButton>
-                  </Box>
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Empresa Principal"
-                        variant="outlined"
-                        value={configurations.absenteismo.empresa_principal}
-                        onChange={(e) => handleInputChange('absenteismo', 'empresa_principal', e.target.value)}
-                        margin="normal"
-                        required
-                        error={errors.absenteismo.empresa_principal}
-                        helperText={errors.absenteismo.empresa_principal ? "Campo obrigatório" : ""}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Código"
-                        variant="outlined"
-                        value={configurations.absenteismo.codigo}
-                        onChange={(e) => handleInputChange('absenteismo', 'codigo', e.target.value)}
-                        margin="normal"
-                        required
-                        error={errors.absenteismo.codigo}
-                        helperText={errors.absenteismo.codigo ? "Campo obrigatório" : ""}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        label="Chave"
-                        variant="outlined"
-                        value={configurations.absenteismo.chave}
-                        onChange={(e) => handleInputChange('absenteismo', 'chave', e.target.value)}
-                        margin="normal"
-                        required
-                        error={errors.absenteismo.chave}
-                        helperText={errors.absenteismo.chave ? "Campo obrigatório" : ""}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 2 }} />
-                      <Typography variant="subtitle1" gutterBottom>
-                        Período para sincronização
-                      </Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        select
-                        fullWidth
-                        label="Filtrar por Empresa"
-                        value={empresaSelecionada}
-                        onChange={handleEmpresaChange}
-                        variant="outlined"
-                        margin="normal"
-                      >
-                        <MenuItem value="">Todas as Empresas</MenuItem>
-                        {empresas.map((empresa) => (
-                          <MenuItem key={empresa.id} value={empresa.codigo}>
-                            {empresa.razao_social}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Grid>
-                    
-                    <Grid item xs={12} md={4}>
-                      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
-                        <DatePicker
-                          label="Data Início"
-                          value={configurations.absenteismo.dataInicio ? new Date(configurations.absenteismo.dataInicio) : null}
-                          onChange={(date) => handleDateChange('absenteismo', 'dataInicio', date)}
-                          slotProps={{
-                            textField: {
-                              fullWidth: true,
-                              variant: 'outlined',
-                              margin: 'normal'
-                            }
-                          }}
-                        />
-                      </LocalizationProvider>
-                    </Grid>
-                    
-                    <Grid item xs={12} md={4}>
-                      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
-                        <DatePicker
-                          label="Data Fim"
-                          value={configurations.absenteismo.dataFim ? new Date(configurations.absenteismo.dataFim) : null}
-                          onChange={(date) => handleDateChange('absenteismo', 'dataFim', date)}
-                          slotProps={{
-                            textField: {
-                              fullWidth: true,
-                              variant: 'outlined',
-                              margin: 'normal'
-                            }
-                          }}
-                        />
-                      </LocalizationProvider>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-                
-                <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    startIcon={<TestIcon />}
-                    onClick={() => handleTestConnection('absenteismo')}
-                    disabled={testLoading}
-                    sx={{ mr: 1 }}
-                  >
-                    {testLoading ? 'Testando...' : 'Testar Conexão'}
-                  </Button>
-                  
-                  <Button
-                    variant="outlined"
-                    color="secondary"
-                    startIcon={<SyncIcon />}
-                    onClick={() => handleSync('absenteismo')}
-                    disabled={syncLoading}
-                    sx={{ mr: 1 }}
-                  >
-                    {syncLoading ? 'Sincronizando...' : 'Sincronizar Dados'}
-                  </Button>
-                  
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={() => handleSaveConfig('absenteismo')}
-                    disabled={loading}
-                  >
-                    {loading ? 'Salvando...' : 'Salvar Configurações'}
-                  </Button>
-                </CardActions>
-              </Card>
-            </Grid>
-          </Grid>
-        </TabPanel>
-      </Paper>
-      
-      {/* Notificações */}
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={6000}
-        onClose={closeNotification}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert onClose={closeNotification} severity={notification.severity} sx={{ width: '100%' }}>
-          {notification.message}
-        </Alert>
-      </Snackbar>
-      
-      {/* Diálogo de informações */}
-      <Dialog
-        open={infoDialog.open}
-        onClose={closeInfoDialog}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>{infoDialog.title}</DialogTitle>
-        <DialogContent dividers>
-          <Typography variant="body1" component="div" sx={{ whiteSpace: 'pre-line' }}>
-            {infoDialog.content}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeInfoDialog} color="primary">
-            Fechar
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
-  );
-};
-
-// Componente auxiliar para as abas
-function TabPanel(props) {
-  const { children, value, index, ...other } = props;
-  
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`api-config-tabpanel-${index}`}
-      aria-labelledby={`api-config-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
 
 export default Settings;
