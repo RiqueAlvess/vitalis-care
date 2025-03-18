@@ -41,7 +41,7 @@ exports.syncFuncionarios = async (req, res, next) => {
     
     // Obter configurações da API
     const configResult = await pool.query(
-      `SELECT codigo, chave
+      `SELECT empresa_principal, codigo, chave
        FROM api_configurations
        WHERE user_id = $1 AND api_type = 'funcionario'`,
       [userId]
