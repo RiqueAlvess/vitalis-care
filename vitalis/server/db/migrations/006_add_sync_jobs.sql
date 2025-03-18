@@ -1,4 +1,4 @@
-// server/db/migrations/006_add_sync_jobs.sql
+-- server/db/migrations/006_add_sync_jobs.sql
 CREATE TABLE IF NOT EXISTS sync_jobs (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
