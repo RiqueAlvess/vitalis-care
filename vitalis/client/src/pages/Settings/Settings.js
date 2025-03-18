@@ -1232,6 +1232,7 @@ const Settings = () => {
               </Grid>
             </TabPanel>
           </Paper>
+          </Container>
           
           {/* Notificações */}
           <Snackbar
