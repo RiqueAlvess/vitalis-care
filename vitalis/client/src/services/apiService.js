@@ -1,4 +1,5 @@
 import axios from 'axios';
+import jobQueueService from './jobQueueService';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 
@@ -299,7 +300,8 @@ export {
   empresaService,
   funcionarioService,
   absenteismoService,
-  planoService
+  planoService,
+  jobQueueService
 };
 
 export default {
@@ -307,5 +309,6 @@ export default {
   empresa: empresaService,
   funcionario: funcionarioService,
   absenteismo: absenteismoService,
-  plano: planoService
+  plano: planoService,
+  jobQueue: jobQueueService
 };
