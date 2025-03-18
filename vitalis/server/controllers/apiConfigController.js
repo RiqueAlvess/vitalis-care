@@ -119,12 +119,18 @@ exports.saveConfiguration = async (req, res, next) => {
         const { ativo, inativo, afastado, pendente, ferias } = config;
         insertQuery = `
           INSERT INTO api_configurations (
-            user_id, api_type, empresa_principal, codigo, chave,
+            user_id, api_type, codigo, chave,
             ativo, inativo, afastado, pendente, ferias
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `;
         
-        insertParams.push(ativo, inativo, afastado, pendente, ferias);
+        insertParams.splice(0, 2, codigo, chave, 
+          ativo === true ? 'Sim' : '', 
+          inativo === true ? 'Sim' : '', 
+          afastado === true ? 'Sim' : '', 
+          pendente === true ? 'Sim' : '', 
+          ferias === true ? 'Sim' : ''
+        );
       }
       
       await client.query(insertQuery, insertParams);
@@ -132,23 +138,28 @@ exports.saveConfiguration = async (req, res, next) => {
       // Atualizar registro existente
       let updateQuery = `
         UPDATE api_configurations
-        SET empresa_principal = $1, 
-            codigo = $2, 
-            chave = $3,
+        SET codigo = $1, 
+            chave = $2,
             updated_at = CURRENT_TIMESTAMP
       `;
       
-      const updateParams = [empresa_principal, codigo, chave, userId, apiType];
+      const updateParams = [codigo, chave, userId, apiType];
       
       // Se for API de funcionário, atualizar campos específicos
       if (apiType === 'funcionario') {
         const { ativo, inativo, afastado, pendente, ferias } = config;
-        updateQuery += `, ativo = $6, inativo = $7, afastado = $8, pendente = $9, ferias = $10`;
-        updateParams.splice(4, 0, ativo, inativo, afastado, pendente, ferias);
+        updateQuery += `, ativo = $3, inativo = $4, afastado = $5, pendente = $6, ferias = $7`;
+        updateParams.splice(2, 0, 
+          ativo === true ? 'Sim' : '', 
+          inativo === true ? 'Sim' : '', 
+          afastado === true ? 'Sim' : '', 
+          pendente === true ? 'Sim' : '', 
+          ferias === true ? 'Sim' : ''
+        );
       }
       
       // Completar query
-      updateQuery += ` WHERE user_id = $4 AND api_type = $5`;
+      updateQuery += ` WHERE user_id = $${updateParams.length - 1} AND api_type = $${updateParams.length}`;
       
       await client.query(updateQuery, updateParams);
     }
@@ -157,7 +168,6 @@ exports.saveConfiguration = async (req, res, next) => {
     
     // Preparar resposta
     const responseConfig = {
-      empresa_principal,
       codigo,
       chave
     };
@@ -165,11 +175,11 @@ exports.saveConfiguration = async (req, res, next) => {
     // Adicionar campos específicos na resposta
     if (apiType === 'funcionario') {
       const { ativo, inativo, afastado, pendente, ferias } = config;
-      responseConfig.ativo = ativo;
-      responseConfig.inativo = inativo;
-      responseConfig.afastado = afastado;
-      responseConfig.pendente = pendente;
-      responseConfig.ferias = ferias;
+      responseConfig.ativo = ativo === true;
+      responseConfig.inativo = inativo === true;
+      responseConfig.afastado = afastado === true;
+      responseConfig.pendente = pendente === true;
+      responseConfig.ferias = ferias === true;
     }
     
     res.status(200).json({ 
