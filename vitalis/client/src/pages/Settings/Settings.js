@@ -223,13 +223,14 @@ const Settings = () => {
       // Converter valores booleanos para "Sim" / vazio para API de funcionário
       const dataToSave = { ...configurations[apiType] };
       
-      if (apiType === 'funcionario') {
-        dataToSave.ativo = dataToSave.ativo ? 'Sim' : '';
-        dataToSave.inativo = dataToSave.inativo ? 'Sim' : '';
-        dataToSave.afastado = dataToSave.afastado ? 'Sim' : '';
-        dataToSave.pendente = dataToSave.pendente ? 'Sim' : '';
-        dataToSave.ferias = dataToSave.ferias ? 'Sim' : '';
-      }
+     if (apiType === 'funcionario') {
+      // Garantir que valores não excedam 10 caracteres
+      dataToSave.ativo = dataToSave.ativo ? 'Sim' : '';
+      dataToSave.inativo = dataToSave.inativo ? 'Sim' : '';
+      dataToSave.afastado = dataToSave.afastado ? 'Sim' : '';
+      dataToSave.pendente = dataToSave.pendente ? 'Sim' : '';
+      dataToSave.ferias = dataToSave.ferias ? 'Sim' : '';
+    }
       
       await apiConfigService.saveConfiguration(apiType, dataToSave);
       showNotification(`Configurações de ${getApiTypeLabel(apiType)} salvas com sucesso`, 'success');
