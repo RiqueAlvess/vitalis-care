@@ -4,6 +4,136 @@ const apiConfigController = require('./apiConfigController');
 // Função para criar um delay entre requisições
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Processa funcionários em lotes para evitar timeout
+const processarLoteFuncionarios = async (client, userId, funcionarios, batchSize = 50) => {
+  let totalInserted = 0;
+  let totalUpdated = 0;
+
+  // Processar em lotes para evitar sobrecarga
+  for (let i = 0; i < funcionarios.length; i += batchSize) {
+    const lote = funcionarios.slice(i, i + batchSize);
+    const valores = [];
+    const atualizacoes = [];
+
+    // Verificar quais funcionários já existem
+    const matriculas = lote.map(f => f.MATRICULAFUNCIONARIO);
+    const existentes = await client.query(
+      `SELECT matricula_funcionario FROM funcionarios 
+       WHERE user_id = $1 AND matricula_funcionario = ANY($2)`,
+      [userId, matriculas]
+    );
+
+    // Criar mapa para verificação rápida
+    const matriculasExistentes = new Set(existentes.rows.map(row => row.matricula_funcionario));
+
+    // Preparar dados
+    for (const funcionario of lote) {
+      // Converter datas com validação
+      const converterData = (dataStr) => {
+        if (!dataStr) return null;
+        const data = new Date(dataStr);
+        return isNaN(data.getTime()) ? null : data;
+      };
+
+      const dataNascimento = converterData(funcionario.DATA_NASCIMENTO);
+      const dataAdmissao = converterData(funcionario.DATA_ADMISSAO);
+      const dataDemissao = converterData(funcionario.DATA_DEMISSAO);
+
+      if (!matriculasExistentes.has(funcionario.MATRICULAFUNCIONARIO)) {
+        // Inserir novo funcionário
+        await client.query(
+          `INSERT INTO funcionarios (
+             user_id, codigo_empresa, nome_empresa, codigo, nome,
+             codigo_unidade, nome_unidade, codigo_setor, nome_setor,
+             codigo_cargo, nome_cargo, cbo_cargo, ccusto, nome_centro_custo,
+             matricula_funcionario, cpf, situacao, sexo,
+             data_nascimento, data_admissao, data_demissao
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
+          [
+            userId,
+            funcionario.CODIGOEMPRESA,
+            funcionario.NOMEEMPRESA,
+            funcionario.CODIGO,
+            funcionario.NOME,
+            funcionario.CODIGOUNIDADE,
+            funcionario.NOMEUNIDADE,
+            funcionario.CODIGOSETOR,
+            funcionario.NOMESETOR,
+            funcionario.CODIGOCARGO,
+            funcionario.NOMECARGO,
+            funcionario.CBOCARGO,
+            funcionario.CCUSTO,
+            funcionario.NOMECENTROCUSTO,
+            funcionario.MATRICULAFUNCIONARIO,
+            funcionario.CPF,
+            funcionario.SITUACAO,
+            funcionario.SEXO,
+            dataNascimento,
+            dataAdmissao,
+            dataDemissao
+          ]
+        );
+        totalInserted++;
+      } else {
+        // Atualizar funcionário existente
+        await client.query(
+          `UPDATE funcionarios SET
+             codigo_empresa = $2,
+             nome_empresa = $3,
+             codigo = $4,
+             nome = $5,
+             codigo_unidade = $6,
+             nome_unidade = $7,
+             codigo_setor = $8,
+             nome_setor = $9,
+             codigo_cargo = $10,
+             nome_cargo = $11,
+             cbo_cargo = $12,
+             ccusto = $13,
+             nome_centro_custo = $14,
+             cpf = $16,
+             situacao = $17,
+             sexo = $18,
+             data_nascimento = $19,
+             data_admissao = $20,
+             data_demissao = $21,
+             updated_at = CURRENT_TIMESTAMP
+           WHERE user_id = $1 AND matricula_funcionario = $15`,
+          [
+            userId,
+            funcionario.CODIGOEMPRESA,
+            funcionario.NOMEEMPRESA,
+            funcionario.CODIGO,
+            funcionario.NOME,
+            funcionario.CODIGOUNIDADE,
+            funcionario.NOMEUNIDADE,
+            funcionario.CODIGOSETOR,
+            funcionario.NOMESETOR,
+            funcionario.CODIGOCARGO,
+            funcionario.NOMECARGO,
+            funcionario.CBOCARGO,
+            funcionario.CCUSTO,
+            funcionario.NOMECENTROCUSTO,
+            funcionario.MATRICULAFUNCIONARIO,
+            funcionario.CPF,
+            funcionario.SITUACAO,
+            funcionario.SEXO,
+            dataNascimento,
+            dataAdmissao,
+            dataDemissao
+          ]
+        );
+        totalUpdated++;
+      }
+    }
+
+    // Pausa curta entre lotes para evitar sobrecarga do DB
+    await delay(50);
+  }
+
+  return { inserted: totalInserted, updated: totalUpdated };
+};
+
 /**
  * Obtém a lista de funcionários
  */
@@ -141,120 +271,20 @@ exports.syncFuncionarios = async (req, res, next) => {
         // Adicionar delay para respeitar limite de requisições (3/seg)
         await delay(350);
         
-        // Fazer requisição à API SOC
-        const funcionariosData = await apiConfigController.requestSocApi(parametros);
-        
-        // Processar os dados dos funcionários
-        for (const funcionario of funcionariosData) {
-          // Verificar se o funcionário já existe
-          const checkResult = await client.query(
-            `SELECT id FROM funcionarios
-             WHERE user_id = $1 AND matricula_funcionario = $2`,
-            [userId, funcionario.MATRICULAFUNCIONARIO]
-          );
+        try {
+          // Fazer requisição à API SOC com timeout aumentado
+          const funcionariosData = await apiConfigController.requestSocApi(parametros);
           
-          // Função para validar e converter data
-          const converterData = (dataStr) => {
-            if (!dataStr) return null;
-            
-            // Verificar se a data é válida
-            const data = new Date(dataStr);
-            return isNaN(data.getTime()) ? null : data;
-          };
+          // Processar funcionários em lotes para evitar timeout
+          const resultado = await processarLoteFuncionarios(client, userId, funcionariosData);
           
-          // Converter datas com validação
-          const dataNascimento = converterData(funcionario.DATA_NASCIMENTO);
-          const dataAdmissao = converterData(funcionario.DATA_ADMISSAO);
-          const dataDemissao = converterData(funcionario.DATA_DEMISSAO);
+          totalInserted += resultado.inserted;
+          totalUpdated += resultado.updated;
           
-          if (checkResult.rows.length === 0) {
-            // Inserir novo funcionário
-            await client.query(
-              `INSERT INTO funcionarios (
-                 user_id, codigo_empresa, nome_empresa, codigo, nome,
-                 codigo_unidade, nome_unidade, codigo_setor, nome_setor,
-                 codigo_cargo, nome_cargo, cbo_cargo, ccusto, nome_centro_custo,
-                 matricula_funcionario, cpf, situacao, sexo,
-                 data_nascimento, data_admissao, data_demissao
-               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
-              [
-                userId,
-                funcionario.CODIGOEMPRESA,
-                funcionario.NOMEEMPRESA,
-                funcionario.CODIGO,
-                funcionario.NOME,
-                funcionario.CODIGOUNIDADE,
-                funcionario.NOMEUNIDADE,
-                funcionario.CODIGOSETOR,
-                funcionario.NOMESETOR,
-                funcionario.CODIGOCARGO,
-                funcionario.NOMECARGO,
-                funcionario.CBOCARGO,
-                funcionario.CCUSTO,
-                funcionario.NOMECENTROCUSTO,
-                funcionario.MATRICULAFUNCIONARIO,
-                funcionario.CPF,
-                funcionario.SITUACAO,
-                funcionario.SEXO,
-                dataNascimento,
-                dataAdmissao,
-                dataDemissao
-              ]
-            );
-            
-            totalInserted++;
-          } else {
-            // Atualizar funcionário existente
-            await client.query(
-              `UPDATE funcionarios SET
-                 codigo_empresa = $2,
-                 nome_empresa = $3,
-                 codigo = $4,
-                 nome = $5,
-                 codigo_unidade = $6,
-                 nome_unidade = $7,
-                 codigo_setor = $8,
-                 nome_setor = $9,
-                 codigo_cargo = $10,
-                 nome_cargo = $11,
-                 cbo_cargo = $12,
-                 ccusto = $13,
-                 nome_centro_custo = $14,
-                 cpf = $16,
-                 situacao = $17,
-                 sexo = $18,
-                 data_nascimento = $19,
-                 data_admissao = $20,
-                 data_demissao = $21,
-                 updated_at = CURRENT_TIMESTAMP
-               WHERE user_id = $1 AND matricula_funcionario = $15`,
-              [
-                userId,
-                funcionario.CODIGOEMPRESA,
-                funcionario.NOMEEMPRESA,
-                funcionario.CODIGO,
-                funcionario.NOME,
-                funcionario.CODIGOUNIDADE,
-                funcionario.NOMEUNIDADE,
-                funcionario.CODIGOSETOR,
-                funcionario.NOMESETOR,
-                funcionario.CODIGOCARGO,
-                funcionario.NOMECARGO,
-                funcionario.CBOCARGO,
-                funcionario.CCUSTO,
-                funcionario.NOMECENTROCUSTO,
-                funcionario.MATRICULAFUNCIONARIO,
-                funcionario.CPF,
-                funcionario.SITUACAO,
-                funcionario.SEXO,
-                dataNascimento,
-                dataAdmissao,
-                dataDemissao
-              ]
-            );
-            
-            totalUpdated++;
-          }
+        } catch (error) {
+          console.error(`Erro ao sincronizar empresa ${empresa.codigo}:`, error);
+          // Continuar com a próxima empresa se houver erro
+          continue;
         }
       }
       
