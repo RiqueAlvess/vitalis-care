@@ -96,6 +96,15 @@ const Settings = () => {
             ...updatedConfigs[apiType],
             ...configs[apiType]
           };
+          
+          // Converter strings para booleanos para os checkboxes
+          if (apiType === 'funcionario') {
+            updatedConfigs[apiType].ativo = configs[apiType].ativo === 'Sim' || configs[apiType].ativo === true;
+            updatedConfigs[apiType].inativo = configs[apiType].inativo === 'Sim' || configs[apiType].inativo === true;
+            updatedConfigs[apiType].afastado = configs[apiType].afastado === 'Sim' || configs[apiType].afastado === true;
+            updatedConfigs[apiType].pendente = configs[apiType].pendente === 'Sim' || configs[apiType].pendente === true;
+            updatedConfigs[apiType].ferias = configs[apiType].ferias === 'Sim' || configs[apiType].ferias === true;
+          }
         }
       });
       
@@ -427,122 +436,485 @@ const Settings = () => {
         return apiType;
     }
   };
-  
-  // O restante do código (renderização) permanece igual
-  // Renderização completa do componente...
 
+  // TabPanel component
+  function TabPanel(props) {
+    const { children, value, index, ...other } = props;
+    
+    return (
+      <div
+        role="tabpanel"
+        hidden={value !== index}
+        id={`api-config-tabpanel-${index}`}
+        aria-labelledby={`api-config-tab-${index}`}
+        {...other}
+      >
+        {value === index && (
+          <Box sx={{ p: 3 }}>
+            {children}
+          </Box>
+        )}
+      </div>
+    );
+  }
+  
   return (
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-          <Typography variant="h4" gutterBottom>
-            Configurações da API
-          </Typography>
-          
-          <Paper sx={{ p: 0, mb: 4 }} elevation={3}>
-            <Tabs
-              value={activeTab}
-              onChange={handleTabChange}
-              indicatorColor="primary"
-              textColor="primary"
-              variant="fullWidth"
-            >
-              <Tab label="Empresas" />
-              <Tab label="Funcionários" />
-              <Tab label="Absenteísmo" />
-            </Tabs>
-            
-            {/* Tab de Configuração de Empresas */}
-            <TabPanel value={activeTab} index={0}>
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <Card>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                        <Typography variant="h6">
-                          Configuração da API de Empresas
-                        </Typography>
-                        <IconButton onClick={() => showInfoDialog('empresa')} color="primary">
-                          <InfoIcon />
-                        </IconButton>
-                      </Box>
-                      
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={4}>
-                          <TextField
-                            fullWidth
-                            label="Empresa Principal"
-                            variant="outlined"
-                            value={configurations.empresa.empresa_principal}
-                            onChange={(e) => handleInputChange('empresa', 'empresa_principal', e.target.value)}
-                            margin="normal"
-                            required
-                            error={errors.empresa.empresa_principal}
-                            helperText={errors.empresa.empresa_principal ? "Campo obrigatório" : ""}
-                          />
-                        </Grid>
-                        
-                        <Grid item xs={12} md={4}>
-                          <TextField
-                            fullWidth
-                            label="Código"
-                            variant="outlined"
-                            value={configurations.empresa.codigo}
-                            onChange={(e) => handleInputChange('empresa', 'codigo', e.target.value)}
-                            margin="normal"
-                            required
-                            error={errors.empresa.codigo}
-                            helperText={errors.empresa.codigo ? "Campo obrigatório" : ""}
-                          />
-                        </Grid>
-                        
-                        <Grid item xs={12} md={4}>
-                          <TextField
-                            fullWidth
-                            label="Chave"
-                            variant="outlined"
-                            value={configurations.empresa.chave}
-                            onChange={(e) => handleInputChange('empresa', 'chave', e.target.value)}
-                            margin="normal"
-                            required
-                            error={errors.empresa.chave}
-                            helperText={errors.empresa.chave ? "Campo obrigatório" : ""}
-                          />
-                        </Grid>
-                      </Grid>
-                    </CardContent>
-                    
-                    <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
-                      <Button
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Typography variant="h4" gutterBottom>
+        Configurações da API
+      </Typography>
+      
+      <Paper sx={{ p: 0, mb: 4 }} elevation={3}>
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          indicatorColor="primary"
+          textColor="primary"
+          variant="fullWidth"
+        >
+          <Tab label="Empresas" />
+          <Tab label="Funcionários" />
+          <Tab label="Absenteísmo" />
+        </Tabs>
+        
+        {/* Tab de Configuração de Empresas */}
+        <TabPanel value={activeTab} index={0}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6">
+                      Configuração da API de Empresas
+                    </Typography>
+                    <IconButton onClick={() => showInfoDialog('empresa')} color="primary">
+                      <InfoIcon />
+                    </IconButton>
+                  </Box>
+                  
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        label="Empresa Principal"
                         variant="outlined"
-                        color="primary"
-                        startIcon={<TestIcon />}
-                        onClick={() => handleTestConnection('empresa')}
-                        disabled={testLoading}
-                        sx={{ mr: 1 }}
-                      >
-                        {testLoading ? 'Testando...' : 'Testar Conexão'}
-                      </Button>
-                      
-                     <Button 
-                      variant="outlined" 
-                      color="secondary"
-                      startIcon={
-                        <SyncIcon 
-                          className={syncLoading ? "icon-spin" : ""}
+                        value={configurations.empresa.empresa_principal}
+                        onChange={(e) => handleInputChange('empresa', 'empresa_principal', e.target.value)}
+                        margin="normal"
+                        required
+                        error={errors.empresa.empresa_principal}
+                        helperText={errors.empresa.empresa_principal ? "Campo obrigatório" : ""}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        label="Código"
+                        variant="outlined"
+                        value={configurations.empresa.codigo}
+                        onChange={(e) => handleInputChange('empresa', 'codigo', e.target.value)}
+                        margin="normal"
+                        required
+                        error={errors.empresa.codigo}
+                        helperText={errors.empresa.codigo ? "Campo obrigatório" : ""}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        label="Chave"
+                        variant="outlined"
+                        value={configurations.empresa.chave}
+                        onChange={(e) => handleInputChange('empresa', 'chave', e.target.value)}
+                        margin="normal"
+                        required
+                        error={errors.empresa.chave}
+                        helperText={errors.empresa.chave ? "Campo obrigatório" : ""}
+                      />
+                    </Grid>
+                  </Grid>
+                </CardContent>
+                
+                <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<TestIcon />}
+                    onClick={() => handleTestConnection('empresa')}
+                    disabled={testLoading}
+                    sx={{ mr: 1 }}
+                  >
+                    {testLoading ? 'Testando...' : 'Testar Conexão'}
+                  </Button>
+                  
+                  <Button 
+                    variant="outlined" 
+                    color="secondary"
+                    startIcon={
+                      <SyncIcon 
+                        className={syncLoading ? "icon-spin" : ""}
+                      />
+                    }
+                    onClick={() => handleSync('empresa')}
+                    disabled={syncLoading}
+                    sx={{ mr: 1 }}
+                  >
+                    {syncLoading ? 'Sincronizando...' : 'Sincronizar Empresas'}
+                  </Button>
+                  
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => handleSaveConfig('empresa')}
+                    disabled={loading}
+                  >
+                    {loading ? 'Salvando...' : 'Salvar Configurações'}
+                  </Button>
+                </CardActions>
+              </Card>
+            </Grid>
+          </Grid>
+        </TabPanel>
+      </Paper>
+      
+      {/* Notificações */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={closeNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert onClose={closeNotification} severity={notification.severity} sx={{ width: '100%' }}>
+          {notification.message}
+        </Alert>
+      </Snackbar>
+      
+      {/* Diálogo de informações */}
+      <Dialog
+        open={infoDialog.open}
+        onClose={closeInfoDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>{infoDialog.title}</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body1" component="div" sx={{ whiteSpace: 'pre-line' }}>
+            {infoDialog.content}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeInfoDialog} color="primary">
+            Fechar
+          </Button>
+        </DialogActions>
+      </Dialog>
+        
+        {/* Tab de Configuração de Funcionários */}
+        <TabPanel value={activeTab} index={1}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6">
+                      Configuração da API de Funcionários
+                    </Typography>
+                    <IconButton onClick={() => showInfoDialog('funcionario')} color="primary">
+                      <InfoIcon />
+                    </IconButton>
+                  </Box>
+                  
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Código"
+                        variant="outlined"
+                        value={configurations.funcionario.codigo}
+                        onChange={(e) => handleInputChange('funcionario', 'codigo', e.target.value)}
+                        margin="normal"
+                        required
+                        error={errors.funcionario.codigo}
+                        helperText={errors.funcionario.codigo ? "Código é obrigatório" : "Código de acesso à API SOC"}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        fullWidth
+                        label="Chave"
+                        variant="outlined"
+                        value={configurations.funcionario.chave}
+                        onChange={(e) => handleInputChange('funcionario', 'chave', e.target.value)}
+                        margin="normal"
+                        required
+                        error={errors.funcionario.chave}
+                        helperText={errors.funcionario.chave ? "Chave é obrigatória" : "Chave de segurança da API SOC"}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="subtitle1" gutterBottom>
+                        Filtros para importação de funcionários
+                      </Typography>
+                      <FormGroup row>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={configurations.funcionario.ativo === true}
+                              onChange={(e) => handleInputChange('funcionario', 'ativo', e.target.checked)}
+                              name="ativo"
+                            />
+                          }
+                          label="Ativo"
                         />
-                      }
-                      onClick={handleSync}
-                      disabled={syncLoading}
-                    >
-                      {syncLoading ? 'Sincronizando...' : 'Sincronizar Empresas'}
-                    </Button>
-                      
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={() => handleSaveConfig('empresa')}
-                        disabled={loading}
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={configurations.funcionario.inativo === true}
+                              onChange={(e) => handleInputChange('funcionario', 'inativo', e.target.checked)}
+                              name="inativo"
+                            />
+                          }
+                          label="Inativo"
+                        />
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={configurations.funcionario.afastado === true}
+                              onChange={(e) => handleInputChange('funcionario', 'afastado', e.target.checked)}
+                              name="afastado"
+                            />
+                          }
+                          label="Afastado"
+                        />
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={configurations.funcionario.pendente === true}
+                              onChange={(e) => handleInputChange('funcionario', 'pendente', e.target.checked)}
+                              name="pendente"
+                            />
+                          }
+                          label="Pendente"
+                        />
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={configurations.funcionario.ferias === true}
+                              onChange={(e) => handleInputChange('funcionario', 'ferias', e.target.checked)}
+                              name="ferias"
+                            />
+                          }
+                          label="Férias"
+                        />
+                      </FormGroup>
+                      <FormHelperText>
+                        Selecione os status de funcionários que deseja importar. 
+                        Por padrão, são importados apenas funcionários ativos.
+                      </FormHelperText>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+                
+                <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<TestIcon />}
+                    onClick={() => handleTestConnection('funcionario')}
+                    disabled={testLoading}
+                    sx={{ mr: 1 }}
+                  >
+                    {testLoading ? 'Testando...' : 'Testar Conexão'}
+                  </Button>
+                  
+                  <Button 
+                    variant="outlined" 
+                    color="secondary"
+                    startIcon={
+                      <SyncIcon 
+                        className={syncLoading ? "icon-spin" : ""}
+                      />
+                    }
+                    onClick={() => handleSync('funcionario')}
+                    disabled={syncLoading}
+                    sx={{ mr: 1 }}
+                  >
+                    {syncLoading ? 'Sincronizando...' : 'Sincronizar Funcionários'}
+                  </Button>
+                  
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => handleSaveConfig('funcionario')}
+                    disabled={loading}
+                  >
+                    {loading ? 'Salvando...' : 'Salvar Configurações'}
+                  </Button>
+                </CardActions>
+              </Card>
+            </Grid>
+          </Grid>
+        </TabPanel>
+        
+        {/* Tab de Configuração de Absenteísmo */}
+        <TabPanel value={activeTab} index={2}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6">
+                      Configuração da API de Absenteísmo
+                    </Typography>
+                    <IconButton onClick={() => showInfoDialog('absenteismo')} color="primary">
+                      <InfoIcon />
+                    </IconButton>
+                  </Box>
+                  
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        label="Empresa Principal"
+                        variant="outlined"
+                        value={configurations.absenteismo.empresa_principal}
+                        onChange={(e) => handleInputChange('absenteismo', 'empresa_principal', e.target.value)}
+                        margin="normal"
+                        required
+                        error={errors.absenteismo.empresa_principal}
+                        helperText={errors.absenteismo.empresa_principal ? "Campo obrigatório" : ""}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        label="Código"
+                        variant="outlined"
+                        value={configurations.absenteismo.codigo}
+                        onChange={(e) => handleInputChange('absenteismo', 'codigo', e.target.value)}
+                        margin="normal"
+                        required
+                        error={errors.absenteismo.codigo}
+                        helperText={errors.absenteismo.codigo ? "Campo obrigatório" : ""}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        label="Chave"
+                        variant="outlined"
+                        value={configurations.absenteismo.chave}
+                        onChange={(e) => handleInputChange('absenteismo', 'chave', e.target.value)}
+                        margin="normal"
+                        required
+                        error={errors.absenteismo.chave}
+                        helperText={errors.absenteismo.chave ? "Campo obrigatório" : ""}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="subtitle1" gutterBottom>
+                        Período para sincronização
+                      </Typography>
+                    </Grid>
+                    
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        select
+                        fullWidth
+                        label="Filtrar por Empresa"
+                        value={empresaSelecionada}
+                        onChange={handleEmpresaChange}
+                        variant="outlined"
+                        margin="normal"
                       >
-                        {loading ? 'Salvando...' : 'Salvar Configurações'}
+                        <MenuItem value="">Todas as Empresas</MenuItem>
+                        {empresas.map((empresa) => (
+                          <MenuItem key={empresa.id} value={empresa.codigo}>
+                            {empresa.razao_social}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    
+                    <Grid item xs={12} md={4}>
+                      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+                        <DatePicker
+                          label="Data Início"
+                          value={configurations.absenteismo.dataInicio ? new Date(configurations.absenteismo.dataInicio) : null}
+                          onChange={(date) => handleDateChange('absenteismo', 'dataInicio', date)}
+                          slotProps={{
+                            textField: {
+                              fullWidth: true,
+                              variant: 'outlined',
+                              margin: 'normal'
+                            }
+                          }}
+                        />
+                      </LocalizationProvider>
+                    </Grid>
+                    
+                    <Grid item xs={12} md={4}>
+                      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+                        <DatePicker
+                          label="Data Fim"
+                          value={configurations.absenteismo.dataFim ? new Date(configurations.absenteismo.dataFim) : null}
+                          onChange={(date) => handleDateChange('absenteismo', 'dataFim', date)}
+                          slotProps={{
+                            textField: {
+                              fullWidth: true,
+                              variant: 'outlined',
+                              margin: 'normal'
+                            }
+                          }}
+                        />
+                      </LocalizationProvider>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+                
+                <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<TestIcon />}
+                    onClick={() => handleTestConnection('absenteismo')}
+                    disabled={testLoading}
+                    sx={{ mr: 1 }}
+                  >
+                    {testLoading ? 'Testando...' : 'Testar Conexão'}
+                  </Button>
+                  
+                  <Button 
+                    variant="outlined" 
+                    color="secondary"
+                    startIcon={
+                      <SyncIcon 
+                        className={syncLoading ? "icon-spin" : ""}
+                      />
+                    }
+                    onClick={() => handleSync('absenteismo')}
+                    disabled={syncLoading}
+                    sx={{ mr: 1 }}
+                  >
+                    {syncLoading ? 'Sincronizando...' : 'Sincronizar Dados'}
+                  </Button>
+                  
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => handleSaveConfig('absenteismo')}
+                    disabled={loading}
+                  >
+                    {loading ? 'Salvando...' : 'Salvar Configurações'}
                       </Button>
                     </CardActions>
                   </Card>
