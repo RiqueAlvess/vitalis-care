@@ -1,6 +1,64 @@
 const { pool } = require('../db');
 const apiConfigController = require('./apiConfigController');
 
+/**
+ * Obtém a lista de funcionários
+ */
+exports.getFuncionarios = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { empresaId } = req.query;
+    
+    // Construir consulta com filtro opcional de empresa
+    let query = `
+      SELECT * FROM funcionarios 
+      WHERE user_id = $1
+    `;
+    
+    const params = [userId];
+    
+    // Adicionar filtro de empresa se especificado
+    if (empresaId) {
+      query += ` AND codigo_empresa = $2`;
+      params.push(empresaId);
+    }
+    
+    query += ` ORDER BY nome`;
+    
+    const result = await pool.query(query, params);
+    
+    res.status(200).json(result.rows);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Busca um funcionário específico
+ */
+exports.getFuncionario = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const funcionarioId = req.params.id;
+    
+    const result = await pool.query(
+      `SELECT * FROM funcionarios
+       WHERE user_id = $1 AND id = $2`,
+      [userId, funcionarioId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Funcionário não encontrado'
+      });
+    }
+    
+    res.status(200).json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.syncFuncionarios = async (req, res, next) => {
   try {
     const userId = req.user.id;
