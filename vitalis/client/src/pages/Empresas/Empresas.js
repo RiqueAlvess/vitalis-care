@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Container, Typography, Box, Paper, Grid, Card, CardContent, 
   CardHeader, Divider, Button, TextField, TableContainer,
@@ -13,6 +14,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import { empresaService } from '../../services/apiService';
 
 const Empresas = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [syncLoading, setSyncLoading] = useState(false);
   const [empresas, setEmpresas] = useState([]);
@@ -39,11 +41,13 @@ const Empresas = () => {
   const handleSync = async () => {
     try {
       setSyncLoading(true);
+      
       const result = await empresaService.syncEmpresas();
       
       if (result.success) {
-        fetchEmpresas(); // Recarregar empresas após sincronização
-        setError(null);
+        showNotification('Job de sincronização adicionado à fila. Acesse o Monitor de Sincronização para acompanhar o progresso.', 'success');
+        // Navigate to the sync monitor page
+        navigate('/sync-monitor');
       } else {
         setError(`Erro na sincronização: ${result.message}`);
       }
@@ -52,6 +56,17 @@ const Empresas = () => {
       setError('Erro ao sincronizar empresas. Verifique as configurações da API.');
     } finally {
       setSyncLoading(false);
+    }
+  };
+  
+  const showNotification = (message, severity = 'info') => {
+    // This implementation depends on how you handle notifications
+    if (severity === 'error') {
+      setError(message);
+    } else {
+      setError(null);
+      // For now, just use an alert
+      alert(message);
     }
   };
   
