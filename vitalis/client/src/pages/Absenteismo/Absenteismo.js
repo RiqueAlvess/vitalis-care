@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Container, Typography, Box, Paper, Grid, Card, CardContent, 
   FormControl, InputLabel, Select, MenuItem, TextField,
@@ -21,6 +22,7 @@ import { format, subMonths, differenceInDays, parseISO } from 'date-fns';
 import { empresaService, absenteismoService } from '../../services/apiService';
 
 const Absenteismo = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [syncLoading, setSyncLoading] = useState(false);
   const [empresas, setEmpresas] = useState([]);
@@ -174,9 +176,9 @@ const Absenteismo = () => {
       );
       
       if (result.success) {
-        // Recarregar dados de absenteísmo após sincronização
-        await fetchAbsenteismo();
-        setError(null);
+        showNotification('Job de sincronização adicionado à fila. Acesse o Monitor de Sincronização para acompanhar o progresso.', 'success');
+        // Navigate to the sync monitor page
+        navigate('/sync-monitor');
       } else {
         setError(`Erro na sincronização: ${result.message}`);
       }
@@ -185,6 +187,17 @@ const Absenteismo = () => {
       setError('Erro ao sincronizar dados de absenteísmo. Verifique as configurações da API.');
     } finally {
       setSyncLoading(false);
+    }
+  };
+  
+  const showNotification = (message, severity = 'info') => {
+    // This implementation depends on how you handle notifications
+    if (severity === 'error') {
+      setError(message);
+    } else {
+      setError(null);
+      // For now, just use an alert
+      alert(message);
     }
   };
   
