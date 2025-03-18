@@ -147,10 +147,19 @@ exports.syncFuncionarios = async (req, res, next) => {
             [userId, funcionario.MATRICULAFUNCIONARIO]
           );
           
-          // Converter datas
-          const dataNascimento = funcionario.DATA_NASCIMENTO ? new Date(funcionario.DATA_NASCIMENTO) : null;
-          const dataAdmissao = funcionario.DATA_ADMISSAO ? new Date(funcionario.DATA_ADMISSAO) : null;
-          const dataDemissao = funcionario.DATA_DEMISSAO ? new Date(funcionario.DATA_DEMISSAO) : null;
+          // Função para validar e converter data
+          const converterData = (dataStr) => {
+            if (!dataStr) return null;
+            
+            // Verificar se a data é válida
+            const data = new Date(dataStr);
+            return isNaN(data.getTime()) ? null : data;
+          };
+          
+          // Converter datas com validação
+          const dataNascimento = converterData(funcionario.DATA_NASCIMENTO);
+          const dataAdmissao = converterData(funcionario.DATA_ADMISSAO);
+          const dataDemissao = converterData(funcionario.DATA_DEMISSAO);
           
           if (checkResult.rows.length === 0) {
             // Inserir novo funcionário
