@@ -3,7 +3,7 @@ import {
   Container, Grid, Paper, Typography, Box, Card, CardContent, 
   CardHeader, Divider, CircularProgress, Button, IconButton,
   FormControl, InputLabel, Select, MenuItem, TextField,
-  Tabs, Tab, Alert, Snackbar, Dialog, DialogTitle, 
+  Tabs, Tab, Alert, Snackbar, Dialog, DialogTitle,
   DialogContent, DialogActions, CardActions, FormControlLabel,
   Checkbox, FormGroup, FormHelperText
 } from '@mui/material';
@@ -522,16 +522,19 @@ const Settings = () => {
                         {testLoading ? 'Testando...' : 'Testar Conexão'}
                       </Button>
                       
-                      <Button
-                        variant="outlined"
-                        color="secondary"
-                        startIcon={<SyncIcon />}
-                        onClick={() => handleSync('empresa')}
-                        disabled={syncLoading}
-                        sx={{ mr: 1 }}
-                      >
-                        {syncLoading ? 'Sincronizando...' : 'Sincronizar Dados'}
-                      </Button>
+                     <Button 
+                      variant="outlined" 
+                      color="secondary"
+                      startIcon={
+                        <SyncIcon 
+                          className={syncLoading ? "icon-spin" : ""}
+                        />
+                      }
+                      onClick={handleSync}
+                      disabled={syncLoading}
+                    >
+                      {syncLoading ? 'Sincronizando...' : 'Sincronizar Empresas'}
+                    </Button>
                       
                       <Button
                         variant="contained"
@@ -668,15 +671,19 @@ const Settings = () => {
                         {testLoading ? 'Testando...' : 'Testar Conexão'}
                       </Button>
                       
-                      <Button
-                        variant="outlined"
+                      <Button 
+                        variant="outlined" 
                         color="secondary"
-                        startIcon={<SyncIcon />}
-                        onClick={() => handleSync('funcionario')}
+                        startIcon={
+                          <SyncIcon 
+                            className={syncLoading ? "icon-spin" : ""}
+                          />
+                        }
+                        onClick={handleSync}
                         disabled={syncLoading}
-                        sx={{ mr: 1 }}
+                        sx={{ mr: 2 }}
                       >
-                        {syncLoading ? 'Sincronizando...' : 'Sincronizar Dados'}
+                        {syncLoading ? 'Sincronizando...' : 'Sincronizar Funcionários'}
                       </Button>
                       
                       <Button
@@ -824,14 +831,17 @@ const Settings = () => {
                       >
                         {testLoading ? 'Testando...' : 'Testar Conexão'}
                       </Button>
-                      
-                      <Button
-                        variant="outlined"
+                        
+                      <Button 
+                        variant="outlined" 
                         color="secondary"
-                        startIcon={<SyncIcon />}
-                        onClick={() => handleSync('absenteismo')}
+                        startIcon={
+                          <SyncIcon 
+                            className={syncLoading ? "icon-spin" : ""}
+                          />
+                        }
+                        onClick={handleSync}
                         disabled={syncLoading}
-                        sx={{ mr: 1 }}
                       >
                         {syncLoading ? 'Sincronizando...' : 'Sincronizar Dados'}
                       </Button>
