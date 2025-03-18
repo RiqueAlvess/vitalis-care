@@ -6,6 +6,7 @@ const { pool } = require('./db');
 const dotenv = require('dotenv');
 const path = require('path');
 const { runMigration } = require('./db/migrate');
+const jobWorker = require('./services/jobWorker');
 
 // Importação das rotas
 const authRoutes = require('./routes/auth');
@@ -14,6 +15,7 @@ const empresasRoutes = require('./routes/empresas');
 const funcionariosRoutes = require('./routes/funcionarios');
 const absenteismoRoutes = require('./routes/absenteismo');
 const planosRoutes = require('./routes/planos');
+const jobQueueRoutes = require('./routes/jobQueue');
 
 // Configuração do ambiente
 dotenv.config();
@@ -62,6 +64,7 @@ app.use('/api/empresas', empresasRoutes);
 app.use('/api/funcionarios', funcionariosRoutes);
 app.use('/api/absenteismo', absenteismoRoutes);
 app.use('/api/planos', planosRoutes);
+app.use('/api/sync-jobs', jobQueueRoutes);
 
 // Servir arquivos estáticos do React em produção
 if (process.env.NODE_ENV === 'production') {
@@ -93,6 +96,9 @@ app.use((err, req, res, next) => {
     console.log('Iniciando migrações automáticas...');
     await runMigration();
     console.log('Migrações concluídas com sucesso!');
+    
+    // Start job worker after migrations
+    jobWorker.startWorker();
   } catch (error) {
     console.error('Erro ao executar migrações:', error);
   }
