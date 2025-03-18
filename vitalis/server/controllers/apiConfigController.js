@@ -336,8 +336,15 @@ exports.requestSocApi = async (parametros) => {
     // Converter parâmetros para string JSON
     const parametrosString = JSON.stringify(parametros);
     
-    // Fazer requisição para a API SOC
-    const response = await axios.get(`${SOC_API_URL}?parametro=${encodeURIComponent(parametrosString)}`);
+    // Fazer requisição para a API SOC com timeout muito maior
+    const response = await axios.get(
+      `${SOC_API_URL}?parametro=${encodeURIComponent(parametrosString)}`,
+      { 
+        timeout: 600000, // 600 segundos (10 minutos)
+        maxContentLength: 500 * 1024 * 1024, // 500MB
+        maxBodyLength: 500 * 1024 * 1024 // 500MB
+      }
+    );
     
     // Verificar se a resposta é válida
     if (response.status !== 200) {
