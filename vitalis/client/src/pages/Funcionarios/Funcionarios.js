@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Container, Typography, Box, Paper, Grid, Card, CardContent, 
   FormControl, InputLabel, Select, MenuItem, TextField,
@@ -16,6 +17,8 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import { empresaService, funcionarioService } from '../../services/apiService';
 
 const Funcionarios = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [syncLoading, setSyncLoading] = useState(false);
   const [empresas, setEmpresas] = useState([]);
@@ -35,7 +38,7 @@ const Funcionarios = () => {
         setEmpresas(empresasData);
         
         // Carregar funcionários (inicial sem filtro de empresa)
-        const funcionariosData = await funcionarioService.getFuncionarios();
+        const funcionariosData = await funcionarioService.getFuncionarios(empresaSelecionada);
         setFuncionarios(funcionariosData);
         setFilteredFuncionarios(funcionariosData);
         
@@ -49,7 +52,9 @@ const Funcionarios = () => {
     };
     
     fetchData();
-  }, []);
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, empresaSelecionada]);
   
   useEffect(() => {
     // Filtragem de funcionários por termo de busca e empresa selecionada
@@ -73,7 +78,9 @@ const Funcionarios = () => {
   }, [searchTerm, empresaSelecionada, funcionarios]);
   
   const handleEmpresaChange = (event) => {
-    setEmpresaSelecionada(event.target.value);
+    const newEmpresaId = event.target.value;
+    setEmpresaSelecionada(newEmpresaId);
+    // The useEffect will handle the data refresh now when empresaSelecionada changes
   };
   
   const handleSearchChange = (event) => {
@@ -87,11 +94,9 @@ const Funcionarios = () => {
       const result = await funcionarioService.syncFuncionarios(empresaSelecionada);
       
       if (result.success) {
-        // Recarregar funcionários após sincronização
-        const funcionariosData = await funcionarioService.getFuncionarios(empresaSelecionada);
-        setFuncionarios(funcionariosData);
-        setFilteredFuncionarios(funcionariosData);
-        setError(null);
+        showNotification('Job de sincronização adicionado à fila. Acesse o Monitor de Sincronização para acompanhar o progresso.', 'success');
+        // Navigate to the sync monitor page
+        navigate('/sync-monitor');
       } else {
         setError(`Erro na sincronização: ${result.message}`);
       }
@@ -100,6 +105,17 @@ const Funcionarios = () => {
       setError('Erro ao sincronizar funcionários. Verifique as configurações da API.');
     } finally {
       setSyncLoading(false);
+    }
+  };
+  
+  const showNotification = (message, severity = 'info') => {
+    // This implementation depends on how you handle notifications
+    if (severity === 'error') {
+      setError(message);
+    } else {
+      setError(null);
+      // For now, just use an alert
+      alert(message);
     }
   };
   
