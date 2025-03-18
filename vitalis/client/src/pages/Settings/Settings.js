@@ -577,7 +577,6 @@ const Settings = () => {
             </Grid>
           </Grid>
         </TabPanel>
-      </Paper>
       
       {/* Notificações */}
       <Snackbar
@@ -736,16 +735,16 @@ const Settings = () => {
                     variant="outlined" 
                     color="secondary"
                     startIcon={
-                      <SyncIcon 
+                        <SyncIcon 
                         className={syncLoading ? "icon-spin" : ""}
-                      />
+                        />
                     }
                     onClick={() => handleSync('funcionario')}
                     disabled={syncLoading}
-                    sx={{ mr: 1 }}
-                  >
+                    sx={{ mr: 2 }}
+                    >
                     {syncLoading ? 'Sincronizando...' : 'Sincronizar Funcionários'}
-                  </Button>
+                </Button>
                   
                   <Button
                     variant="contained"
@@ -755,6 +754,8 @@ const Settings = () => {
                   >
                     {loading ? 'Salvando...' : 'Salvar Configurações'}
                   </Button>
+
+
                 </CardActions>
               </Card>
             </Grid>
@@ -1043,20 +1044,20 @@ const Settings = () => {
                         {testLoading ? 'Testando...' : 'Testar Conexão'}
                       </Button>
                       
-                      <Button 
-                        variant="outlined" 
-                        color="secondary"
-                        startIcon={
-                          <SyncIcon 
-                            className={syncLoading ? "icon-spin" : ""}
-                          />
-                        }
-                        onClick={handleSync}
-                        disabled={syncLoading}
-                        sx={{ mr: 2 }}
-                      >
-                        {syncLoading ? 'Sincronizando...' : 'Sincronizar Funcionários'}
-                      </Button>
+                    <Button 
+                    variant="outlined" 
+                    color="secondary"
+                    startIcon={
+                        <SyncIcon 
+                        className={syncLoading ? "icon-spin" : ""}
+                        />
+                    }
+                    onClick={() => handleSync('funcionario')}
+                    disabled={syncLoading}
+                    sx={{ mr: 2 }}
+                    >
+                    {syncLoading ? 'Sincronizando...' : 'Sincronizar Funcionários'}
+                    </Button>
                       
                       <Button
                         variant="contained"
@@ -1204,19 +1205,19 @@ const Settings = () => {
                         {testLoading ? 'Testando...' : 'Testar Conexão'}
                       </Button>
                         
-                      <Button 
-                        variant="outlined" 
-                        color="secondary"
-                        startIcon={
-                          <SyncIcon 
-                            className={syncLoading ? "icon-spin" : ""}
-                          />
-                        }
-                        onClick={handleSync}
-                        disabled={syncLoading}
-                      >
-                        {syncLoading ? 'Sincronizando...' : 'Sincronizar Dados'}
-                      </Button>
+                    <Button 
+                    variant="outlined" 
+                    color="secondary"
+                    startIcon={
+                        <SyncIcon 
+                        className={syncLoading ? "icon-spin" : ""}
+                        />
+                    }
+                    onClick={() => handleSync('absenteismo')}
+                    disabled={syncLoading}
+                    >
+                    {syncLoading ? 'Sincronizando...' : 'Sincronizar Dados'}
+                    </Button>
                       
                       <Button
                         variant="contained"
@@ -1286,7 +1287,6 @@ const Settings = () => {
           </Box>
         )}
       </div>
-    </Container>
     );
   }
 
