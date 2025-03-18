@@ -17,6 +17,7 @@ import Empresas from './pages/Empresas/Empresas';
 import Funcionarios from './pages/Funcionarios/Funcionarios';
 import Absenteismo from './pages/Absenteismo/Absenteismo';
 import Profile from './pages/Profile/Profile';
+import SyncMonitor from './pages/SyncMonitor/SyncMonitor';
 
 // Protected Routes
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -49,6 +50,7 @@ const AppRoutes = () => {
         <Route path="funcionarios" element={<Funcionarios />} />
         <Route path="absenteismo" element={<Absenteismo />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="sync-monitor" element={<SyncMonitor />} />
         
         {/* Catch-all route */}
         <Route path="*" element={<NotFound />} />
