@@ -1,5 +1,6 @@
 const { pool } = require('../db');
 const apiConfigController = require('./apiConfigController');
+const jobQueueService = require('../services/jobQueueService');
 
 /**
  * Obtém a lista de empresas do usuário
@@ -22,9 +23,37 @@ exports.getEmpresas = async (req, res, next) => {
 };
 
 /**
- * Sincroniza dados de empresas com a API SOC
+ * Queues a job to synchronize companies data
  */
 exports.syncEmpresas = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    
+    // Create new job in the queue
+    const jobId = await jobQueueService.createJob(userId, 'empresa', {
+      userId
+    });
+    
+    res.status(202).json({
+      success: true,
+      message: 'Company synchronization job added to queue',
+      jobId
+    });
+  } catch (error) {
+    console.error('Error queuing empresa sync job:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating synchronization job',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Original synchronization method (kept for reference)
+ * This will be replaced by the job worker
+ */
+exports.syncEmpresasOriginal = async (req, res, next) => {
   try {
     const userId = req.user.id;
     
