@@ -1,3 +1,4 @@
+// vitalis/client/src/routes.js
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 
@@ -13,7 +14,6 @@ import Dashboard from './pages/Dashboard/Dashboard';
 import Settings from './pages/Settings/Settings';
 
 // Novas páginas
-import Empresas from './pages/Empresas/Empresas';
 import Funcionarios from './pages/Funcionarios/Funcionarios';
 import Absenteismo from './pages/Absenteismo/Absenteismo';
 import Profile from './pages/Profile/Profile';
@@ -46,7 +46,6 @@ const AppRoutes = () => {
         <Route path="settings" element={<Settings />} />
         
         {/* Páginas adicionadas */}
-        <Route path="empresas" element={<Empresas />} />
         <Route path="funcionarios" element={<Funcionarios />} />
         <Route path="absenteismo" element={<Absenteismo />} />
         <Route path="profile" element={<Profile />} />
