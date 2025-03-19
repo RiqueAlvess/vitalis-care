@@ -1,4 +1,3 @@
-// vitalis/client/src/services/apiService.js
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
@@ -81,6 +80,18 @@ const absenteismoService = {
       console.error('Erro ao sincronizar absenteísmo:', error);
       throw error;
     }
+  },
+
+  async getDashboardData(dataInicio, dataFim) {
+    try {
+      const response = await axios.get(`${API_URL}/absenteismo/dashboard`, {
+        params: { dataInicio, dataFim }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao buscar dados do dashboard:', error);
+      throw error;
+    }
   }
 };
 
@@ -88,4 +99,10 @@ export {
   apiConfigService,
   funcionarioService,
   absenteismoService
+};
+
+export default {
+  apiConfig: apiConfigService,
+  funcionario: funcionarioService,
+  absenteismo: absenteismoService
 };
