@@ -1,47 +1,38 @@
-const axios = require('axios');
 const { pool } = require('../db');
+const axios = require('axios');
 
-// URL base da API SOC
 const SOC_API_URL = 'https://ws1.soc.com.br/WebSoc/exportadados';
 
-/**
- * Obtém as configurações de API do usuário
- * @param {Object} req - Requisição Express
- * @param {Object} res - Resposta Express
- * @param {Function} next - Função next do Express
- */
 exports.getConfigurations = async (req, res, next) => {
   try {
     const userId = req.user.id;
     
-    // Buscar configurações de API do usuário
     const result = await pool.query(
-      `SELECT api_type, empresa_principal, codigo, chave, 
-              ativo, inativo, afastado, pendente, ferias
+      `SELECT api_type, empresa_padrao, codigo, chave, 
+              ativo, inativo, afastado, pendente, ferias,
+              data_inicio, data_fim
        FROM api_configurations 
        WHERE user_id = $1`,
       [userId]
     );
     
-    // Transformar resultado em objeto agrupado por tipo de API
     const configs = {};
     
     result.rows.forEach(row => {
       configs[row.api_type] = {
-        empresa_principal: row.empresa_principal || '',
+        empresa_padrao: row.empresa_padrao || '',
         codigo: row.codigo || '',
         chave: row.chave || ''
       };
       
-      // Adicionar campos específicos para cada tipo de API
       if (row.api_type === 'funcionario') {
         configs[row.api_type] = {
           ...configs[row.api_type],
-          ativo: row.ativo || '',
-          inativo: row.inativo || '',
-          afastado: row.afastado || '',
-          pendente: row.pendente || '',
-          ferias: row.ferias || ''
+          ativo: row.ativo === 'Sim',
+          inativo: row.inativo === 'Sim',
+          afastado: row.afastado === 'Sim',
+          pendente: row.pendente === 'Sim',
+          ferias: row.ferias === 'Sim'
         };
       } else if (row.api_type === 'absenteismo') {
         const today = new Date();
@@ -50,19 +41,11 @@ exports.getConfigurations = async (req, res, next) => {
         
         configs[row.api_type] = {
           ...configs[row.api_type],
-          dataInicio: twoMonthsAgo.toISOString().split('T')[0],
-          dataFim: today.toISOString().split('T')[0]
+          dataInicio: row.data_inicio || twoMonthsAgo.toISOString().split('T')[0],
+          dataFim: row.data_fim || today.toISOString().split('T')[0]
         };
       }
     });
-    
-    // Buscar empresas disponíveis para seleção
-    const empresasResult = await pool.query(
-      `SELECT codigo, razao_social FROM empresas WHERE user_id = $1 AND ativo = true ORDER BY razao_social`,
-      [userId]
-    );
-    
-    configs.empresasDisponiveis = empresasResult.rows;
     
     res.status(200).json(configs);
   } catch (error) {
@@ -74,12 +57,6 @@ exports.getConfigurations = async (req, res, next) => {
   }
 };
 
-/**
- * Salva uma configuração de API
- * @param {Object} req - Requisição Express
- * @param {Object} res - Resposta Express
- * @param {Function} next - Função next do Express
- */
 exports.saveConfiguration = async (req, res, next) => {
   const client = await pool.connect();
   try {
@@ -87,123 +64,107 @@ exports.saveConfiguration = async (req, res, next) => {
     const apiType = req.params.apiType;
     const config = req.body;
     
-    // Validar tipo de API
-    const validApiTypes = ['empresa', 'funcionario', 'absenteismo'];
+    const validApiTypes = ['funcionario', 'absenteismo'];
     if (!validApiTypes.includes(apiType)) {
       return res.status(400).json({ message: 'Tipo de API inválido' });
     }
     
-    // Campos comuns a todas as APIs
-    const { empresa_principal, codigo, chave } = config;
+    const { 
+      empresa_padrao, 
+      codigo, 
+      chave, 
+      ativo, 
+      inativo, 
+      afastado, 
+      pendente, 
+      ferias,
+      dataInicio,
+      dataFim
+    } = config;
     
-    // Verificar se o registro já existe
+    await client.query('BEGIN');
+    
     const checkResult = await client.query(
       'SELECT id FROM api_configurations WHERE user_id = $1 AND api_type = $2',
       [userId, apiType]
     );
     
-    await client.query('BEGIN');
-    
     if (checkResult.rows.length === 0) {
-      // Inserir novo registro
       let insertQuery = `
         INSERT INTO api_configurations (
-          user_id, api_type, empresa_principal, codigo, chave
-        ) VALUES ($1, $2, $3, $4, $5)
+          user_id, api_type, empresa_padrao, codigo, chave,
+          ativo, inativo, afastado, pendente, ferias,
+          data_inicio, data_fim
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       `;
       
-      const insertParams = [userId, apiType, empresa_principal, codigo, chave];
-      
-      // Se for API de funcionário, adicionar campos específicos
-      if (apiType === 'funcionario') {
-        const { ativo, inativo, afastado, pendente, ferias } = config;
-        
-        // Converter valores booleanos para strings esperadas pela API
-        const ativoValue = ativo === true || ativo === 'true' || ativo === 'Sim';
-        const inativoValue = inativo === true || inativo === 'true' || inativo === 'Sim';
-        const afastadoValue = afastado === true || afastado === 'true' || afastado === 'Sim';
-        const pendenteValue = pendente === true || pendente === 'true' || pendente === 'Sim';
-        const feriasValue = ferias === true || ferias === 'true' || ferias === 'Sim';
-        
-        insertQuery = `
-          INSERT INTO api_configurations (
-            user_id, api_type, empresa_principal, codigo, chave,
-            ativo, inativo, afastado, pendente, ferias
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        `;
-        
-        insertParams.push(
-          ativoValue ? 'Sim' : '', 
-          inativoValue ? 'Sim' : '', 
-          afastadoValue ? 'Sim' : '', 
-          pendenteValue ? 'Sim' : '', 
-          feriasValue ? 'Sim' : ''
-        );
-      }
+      const insertParams = [
+        userId, 
+        apiType, 
+        empresa_padrao, 
+        codigo, 
+        chave,
+        ativo === true ? 'Sim' : '',
+        inativo === true ? 'Sim' : '',
+        afastado === true ? 'Sim' : '',
+        pendente === true ? 'Sim' : '',
+        ferias === true ? 'Sim' : '',
+        dataInicio || null,
+        dataFim || null
+      ];
       
       await client.query(insertQuery, insertParams);
     } else {
-      // Atualizar registro existente
       let updateQuery = `
         UPDATE api_configurations
-        SET empresa_principal = $1,
+        SET empresa_padrao = $1,
             codigo = $2, 
             chave = $3,
+            ativo = $4,
+            inativo = $5,
+            afastado = $6,
+            pendente = $7,
+            ferias = $8,
+            data_inicio = $9,
+            data_fim = $10,
             updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = $11 AND api_type = $12
       `;
       
-      const updateParams = [empresa_principal, codigo, chave, userId, apiType];
-      
-      // Se for API de funcionário, atualizar campos específicos
-      if (apiType === 'funcionario') {
-        const { ativo, inativo, afastado, pendente, ferias } = config;
-        
-        // Converter valores booleanos para strings esperadas pela API
-        const ativoValue = ativo === true || ativo === 'true' || ativo === 'Sim';
-        const inativoValue = inativo === true || inativo === 'true' || inativo === 'Sim';
-        const afastadoValue = afastado === true || afastado === 'true' || afastado === 'Sim';
-        const pendenteValue = pendente === true || pendente === 'true' || pendente === 'Sim';
-        const feriasValue = ferias === true || ferias === 'true' || ferias === 'Sim';
-        
-        updateQuery += `, ativo = $4, inativo = $5, afastado = $6, pendente = $7, ferias = $8`;
-        updateParams.splice(3, 0, 
-          ativoValue ? 'Sim' : '', 
-          inativoValue ? 'Sim' : '', 
-          afastadoValue ? 'Sim' : '', 
-          pendenteValue ? 'Sim' : '', 
-          feriasValue ? 'Sim' : ''
-        );
-      }
-      
-      // Completar query
-      updateQuery += ` WHERE user_id = $${updateParams.length - 1} AND api_type = $${updateParams.length}`;
+      const updateParams = [
+        empresa_padrao,
+        codigo,
+        chave,
+        ativo === true ? 'Sim' : '',
+        inativo === true ? 'Sim' : '',
+        afastado === true ? 'Sim' : '',
+        pendente === true ? 'Sim' : '',
+        ferias === true ? 'Sim' : '',
+        dataInicio || null,
+        dataFim || null,
+        userId,
+        apiType
+      ];
       
       await client.query(updateQuery, updateParams);
     }
     
     await client.query('COMMIT');
     
-    // Preparar resposta
-    const responseConfig = {
-      empresa_principal,
-      codigo,
-      chave
-    };
-    
-    // Adicionar campos específicos na resposta
-    if (apiType === 'funcionario') {
-      const { ativo, inativo, afastado, pendente, ferias } = config;
-      responseConfig.ativo = ativo === true || ativo === 'true' || ativo === 'Sim';
-      responseConfig.inativo = inativo === true || inativo === 'true' || inativo === 'Sim';
-      responseConfig.afastado = afastado === true || afastado === 'true' || afastado === 'Sim';
-      responseConfig.pendente = pendente === true || pendente === 'true' || pendente === 'Sim';
-      responseConfig.ferias = ferias === true || ferias === 'true' || ferias === 'Sim';
-    }
-    
     res.status(200).json({ 
       message: 'Configuração salva com sucesso',
-      apiType,
-      config: responseConfig
+      config: {
+        empresa_padrao,
+        codigo,
+        chave,
+        ativo: ativo === true,
+        inativo: inativo === true,
+        afastado: afastado === true,
+        pendente: pendente === true,
+        ferias: ferias === true,
+        dataInicio,
+        dataFim
+      }
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -217,58 +178,38 @@ exports.saveConfiguration = async (req, res, next) => {
   }
 };
 
-/**
- * Testa a conexão com a API SOC
- * @param {Object} req - Requisição Express
- * @param {Object} res - Resposta Express
- * @param {Function} next - Função next do Express
- */
 exports.testConnection = async (req, res, next) => {
   try {
-    const { type, empresa_principal, codigo, chave, ativo, inativo, afastado, pendente, ferias } = req.body;
+    const { type, empresa_padrao, codigo, chave, ativo, inativo, afastado, pendente, ferias } = req.body;
     
-    // Validar tipo de API
-    const validApiTypes = ['empresa', 'funcionario', 'absenteismo'];
+    const validApiTypes = ['funcionario', 'absenteismo'];
     if (!validApiTypes.includes(type)) {
       return res.status(400).json({ message: 'Tipo de API inválido' });
     }
     
-    // Validar campos obrigatórios
-    if (!empresa_principal || !codigo || !chave) {
+    if (!empresa_padrao || !codigo || !chave) {
       return res.status(400).json({ message: 'Todos os campos são obrigatórios' });
     }
     
-    // Construir parâmetros de acordo com o tipo de API
     let parametros = {
-      empresa: empresa_principal,
+      empresa: empresa_padrao,
       codigo: codigo,
       chave: chave,
       tipoSaida: 'json'
     };
     
-    // Adicionar parâmetros específicos para cada tipo de API
     if (type === 'funcionario') {
       if (ativo) parametros.ativo = 'Sim';
       if (inativo) parametros.inativo = 'Sim';
       if (afastado) parametros.afastado = 'Sim';
       if (pendente) parametros.pendente = 'Sim';
       if (ferias) parametros.ferias = 'Sim';
-    } else if (type === 'absenteismo') {
-      const today = new Date();
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(today.getMonth() - 1);
-      
-      parametros.dataInicio = oneMonthAgo.toISOString().split('T')[0];
-      parametros.dataFim = today.toISOString().split('T')[0];
     }
     
-    // Converter parâmetros para string JSON
     const parametrosString = JSON.stringify(parametros);
     
-    // Fazer requisição para a API SOC
     const response = await axios.get(`${SOC_API_URL}?parametro=${encodeURIComponent(parametrosString)}`);
     
-    // Verificar se a resposta é válida
     if (response.status !== 200) {
       return res.status(400).json({ 
         success: false,
@@ -276,17 +217,11 @@ exports.testConnection = async (req, res, next) => {
       });
     }
     
-    // Tentar decodificar a resposta
     const responseData = response.data;
     let parsedData;
     
     try {
-      // Se a resposta for uma string, tentar decodificar como JSON
-      if (typeof responseData === 'string') {
-        parsedData = JSON.parse(responseData);
-      } else {
-        parsedData = responseData;
-      }
+      parsedData = typeof responseData === 'string' ? JSON.parse(responseData) : responseData;
     } catch (error) {
       return res.status(400).json({ 
         success: false,
@@ -294,7 +229,6 @@ exports.testConnection = async (req, res, next) => {
       });
     }
     
-    // Verificar se há erros na resposta
     if (parsedData.error) {
       return res.status(400).json({ 
         success: false,
@@ -302,7 +236,6 @@ exports.testConnection = async (req, res, next) => {
       });
     }
     
-    // Verificar se a resposta contém dados
     if (!Array.isArray(parsedData) || parsedData.length === 0) {
       return res.status(400).json({ 
         success: false,
@@ -323,64 +256,5 @@ exports.testConnection = async (req, res, next) => {
       message: 'Erro ao testar conexão com a API SOC',
       error: error.message
     });
-  }
-};
-
-/**
- * Faz requisição para a API SOC
- * @param {Object} parametros - Parâmetros da requisição
- * @returns {Promise<Array>} - Dados retornados da API
- */
-exports.requestSocApi = async (parametros) => {
-  try {
-    // Converter parâmetros para string JSON
-    const parametrosString = JSON.stringify(parametros);
-    
-    // Fazer requisição para a API SOC com timeout muito maior
-    const response = await axios.get(
-      `${SOC_API_URL}?parametro=${encodeURIComponent(parametrosString)}`,
-      { 
-        timeout: 600000, // 600 segundos (10 minutos)
-        maxContentLength: 500 * 1024 * 1024, // 500MB
-        maxBodyLength: 500 * 1024 * 1024 // 500MB
-      }
-    );
-    
-    // Verificar se a resposta é válida
-    if (response.status !== 200) {
-      throw new Error('Erro ao conectar com a API SOC');
-    }
-    
-    // Decodificar a resposta
-    const responseData = response.data;
-    let parsedData;
-    
-    try {
-      // Se a resposta for uma string, tentar decodificar como JSON
-      if (typeof responseData === 'string') {
-        // Se for uma string codificada em latin1, converter para UTF-8
-        const decodedData = Buffer.from(responseData, 'latin1').toString('utf8');
-        parsedData = JSON.parse(decodedData);
-      } else {
-        parsedData = responseData;
-      }
-    } catch (error) {
-      throw new Error('Erro ao processar resposta da API SOC');
-    }
-    
-    // Verificar se há erros na resposta
-    if (parsedData.error) {
-      throw new Error(`Erro na API SOC: ${parsedData.error}`);
-    }
-    
-    // Verificar se a resposta contém dados
-    if (!Array.isArray(parsedData)) {
-      throw new Error('A API SOC não retornou dados no formato esperado');
-    }
-    
-    return parsedData;
-  } catch (error) {
-    console.error('Erro na requisição SOC API:', error);
-    throw error;
   }
 };
