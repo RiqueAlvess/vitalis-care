@@ -11,7 +11,7 @@ import SyncIcon from '@mui/icons-material/Sync';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import BusinessIcon from '@mui/icons-material/Business';
-import { empresaService } from '../../services/apiService';
+import apiService from '../../services/apiService';e';
 
 const Empresas = () => {
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ const Empresas = () => {
   const fetchEmpresas = async () => {
     try {
       setLoading(true);
-      const empresasData = await empresaService.getEmpresas();
+      const empresasData = await apiService.empresa.getEmpresas();
       setEmpresas(empresasData);
       setError(null);
     } catch (error) {
@@ -42,7 +42,7 @@ const Empresas = () => {
     try {
       setSyncLoading(true);
       
-      const result = await empresaService.syncEmpresas();
+      const result = await apiService.empresa.syncEmpresas();
       
       if (result.success) {
         showNotification('Job de sincronização adicionado à fila. Acesse o Monitor de Sincronização para acompanhar o progresso.', 'success');
