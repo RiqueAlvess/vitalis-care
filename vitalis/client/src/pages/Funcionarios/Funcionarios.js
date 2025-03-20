@@ -14,31 +14,30 @@ import PersonIcon from '@mui/icons-material/Person';
 import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
 import BadgeIcon from '@mui/icons-material/Badge';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import { empresaService, funcionarioService } from '../../services/apiService';
+import { funcionarioService, apiConfigService } from '../../services/apiService';
 
 const Funcionarios = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [syncLoading, setSyncLoading] = useState(false);
-  const [empresas, setEmpresas] = useState([]);
   const [funcionarios, setFuncionarios] = useState([]);
   const [error, setError] = useState(null);
   const [filteredFuncionarios, setFilteredFuncionarios] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [empresaSelecionada, setEmpresaSelecionada] = useState('');
+  const [apiConfig, setApiConfig] = useState(null);
   
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         
-        // Carregar empresas
-        const empresasData = await empresaService.getEmpresas();
-        setEmpresas(empresasData);
+        // Carregar configurações da API para obter a empresa padrão
+        const configs = await apiConfigService.getConfigurations();
+        setApiConfig(configs.funcionario || {});
         
-        // Carregar funcionários (inicial sem filtro de empresa)
-        const funcionariosData = await funcionarioService.getFuncionarios(empresaSelecionada);
+        // Carregar funcionários
+        const funcionariosData = await funcionarioService.getFuncionarios();
         setFuncionarios(funcionariosData);
         setFilteredFuncionarios(funcionariosData);
         
@@ -52,17 +51,11 @@ const Funcionarios = () => {
     };
     
     fetchData();
-    
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, empresaSelecionada]);
+  }, [location.pathname]);
   
   useEffect(() => {
-    // Filtragem de funcionários por termo de busca e empresa selecionada
+    // Filtragem de funcionários por termo de busca
     let filtered = funcionarios;
-    
-    if (empresaSelecionada) {
-      filtered = filtered.filter(func => func.codigo_empresa === empresaSelecionada);
-    }
     
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -75,13 +68,7 @@ const Funcionarios = () => {
     }
     
     setFilteredFuncionarios(filtered);
-  }, [searchTerm, empresaSelecionada, funcionarios]);
-  
-  const handleEmpresaChange = (event) => {
-    const newEmpresaId = event.target.value;
-    setEmpresaSelecionada(newEmpresaId);
-    // The useEffect will handle the data refresh now when empresaSelecionada changes
-  };
+  }, [searchTerm, funcionarios]);
   
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
@@ -91,7 +78,7 @@ const Funcionarios = () => {
     try {
       setSyncLoading(true);
       
-      const result = await funcionarioService.syncFuncionarios(empresaSelecionada);
+      const result = await funcionarioService.syncFuncionarios();
       
       if (result.success) {
         showNotification('Job de sincronização adicionado à fila. Acesse o Monitor de Sincronização para acompanhar o progresso.', 'success');
@@ -140,7 +127,7 @@ const Funcionarios = () => {
                 </Typography>
               </Box>
               <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                {empresaSelecionada ? 'Funcionários da empresa selecionada' : 'Todos os funcionários'}
+                Funcionários cadastrados no sistema
               </Typography>
             </CardContent>
           </Card>
@@ -196,7 +183,6 @@ const Funcionarios = () => {
             <TableRow sx={{ backgroundColor: 'primary.light' }}>
               <TableCell>Matrícula</TableCell>
               <TableCell>Nome</TableCell>
-              <TableCell>Empresa</TableCell>
               <TableCell>Setor</TableCell>
               <TableCell>Cargo</TableCell>
               <TableCell>Situação</TableCell>
@@ -207,7 +193,6 @@ const Funcionarios = () => {
               <TableRow key={funcionario.id} hover>
                 <TableCell>{funcionario.matricula_funcionario}</TableCell>
                 <TableCell>{funcionario.nome}</TableCell>
-                <TableCell>{funcionario.nome_empresa}</TableCell>
                 <TableCell>{funcionario.nome_setor}</TableCell>
                 <TableCell>{funcionario.nome_cargo}</TableCell>
                 <TableCell>
@@ -221,9 +206,9 @@ const Funcionarios = () => {
             ))}
             {filteredFuncionarios.length === 0 && !loading && (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
                   <Typography color="textSecondary">
-                    Nenhum funcionário encontrado. {empresaSelecionada ? "Utilize o botão 'Sincronizar Funcionários' para importar dados." : "Selecione uma empresa e sincronize os dados."}
+                    Nenhum funcionário encontrado. Utilize o botão 'Sincronizar Funcionários' para importar dados.
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -277,30 +262,29 @@ const Funcionarios = () => {
         </Alert>
       )}
       
+      {/* Configuração da empresa */}
+      {apiConfig && apiConfig.empresa_padrao && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Usando a empresa padrão: <strong>{apiConfig.empresa_padrao}</strong>
+        </Alert>
+      )}
+      
+      {!apiConfig?.empresa_padrao && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Empresa padrão não configurada. Por favor, configure a empresa padrão nas <Button 
+            size="small" 
+            color="inherit" 
+            onClick={() => navigate('/settings')}
+          >
+            Configurações
+          </Button>
+        </Alert>
+      )}
+      
       {/* Filtros */}
       <Paper sx={{ p: 2, mb: 3 }} elevation={3}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={5}>
-            <FormControl fullWidth>
-              <InputLabel id="empresa-select-label">Filtrar por Empresa</InputLabel>
-              <Select
-                labelId="empresa-select-label"
-                id="empresa-select"
-                value={empresaSelecionada}
-                label="Filtrar por Empresa"
-                onChange={handleEmpresaChange}
-              >
-                <MenuItem value="">Todas as Empresas</MenuItem>
-                {empresas.map((empresa) => (
-                  <MenuItem key={empresa.id} value={empresa.codigo}>
-                    {empresa.razao_social}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} md={5}>
+          <Grid item xs={12} md={10}>
             <TextField
               fullWidth
               label="Pesquisar Funcionário"
