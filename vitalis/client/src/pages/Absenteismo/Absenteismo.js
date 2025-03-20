@@ -19,18 +19,17 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DownloadIcon from '@mui/icons-material/Download';
 import { format, subMonths, differenceInDays, parseISO } from 'date-fns';
-import { empresaService, absenteismoService } from '../../services/apiService';
+import { apiConfigService, absenteismoService } from '../../services/apiService';
 
 const Absenteismo = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [syncLoading, setSyncLoading] = useState(false);
-  const [empresas, setEmpresas] = useState([]);
   const [absenteismo, setAbsenteismo] = useState([]);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [apiConfig, setApiConfig] = useState(null);
   const [filtros, setFiltros] = useState({
-    empresaId: '',
     dataInicio: subMonths(new Date(), 2),
     dataFim: new Date(),
     filtro: ''
@@ -50,9 +49,9 @@ const Absenteismo = () => {
       try {
         setLoading(true);
         
-        // Carregar empresas
-        const empresasData = await empresaService.getEmpresas();
-        setEmpresas(empresasData);
+        // Carregar configurações da API para obter a empresa padrão
+        const configs = await apiConfigService.getConfigurations();
+        setApiConfig(configs.absenteismo || {});
         
         // Carregar dados de absenteísmo
         await fetchAbsenteismo();
@@ -79,8 +78,7 @@ const Absenteismo = () => {
       
       const absenteismoData = await absenteismoService.getAbsenteismo(
         dataInicio, 
-        dataFim, 
-        filtros.empresaId || undefined
+        dataFim
       );
       
       setAbsenteismo(absenteismoData);
@@ -171,8 +169,7 @@ const Absenteismo = () => {
       
       const result = await absenteismoService.syncAbsenteismo(
         dataInicio,
-        dataFim,
-        filtros.empresaId || undefined
+        dataFim
       );
       
       if (result.success) {
@@ -400,31 +397,30 @@ const Absenteismo = () => {
           {error}
         </Alert>
       )}
+
+      {/* Configuração da empresa */}
+      {apiConfig && apiConfig.empresa_padrao && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Usando a empresa padrão: <strong>{apiConfig.empresa_padrao}</strong>
+        </Alert>
+      )}
+      
+      {!apiConfig?.empresa_padrao && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Empresa padrão não configurada. Por favor, configure a empresa padrão nas <Button 
+            size="small" 
+            color="inherit" 
+            onClick={() => navigate('/settings')}
+          >
+            Configurações
+          </Button>
+        </Alert>
+      )}
       
       {/* Filtros */}
       <Paper sx={{ p: 2, mb: 3 }} elevation={3}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel id="empresa-select-label">Empresa</InputLabel>
-              <Select
-                labelId="empresa-select-label"
-                id="empresa-select"
-                value={filtros.empresaId}
-                label="Empresa"
-                onChange={(e) => handleChangeFiltro('empresaId', e.target.value)}
-              >
-                <MenuItem value="">Todas</MenuItem>
-                {empresas.map((empresa) => (
-                  <MenuItem key={empresa.id} value={empresa.codigo}>
-                    {empresa.razao_social}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
+          <Grid item xs={12} sm={6} md={3}>
             <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
               <DatePicker
                 label="Data Início"
@@ -440,7 +436,7 @@ const Absenteismo = () => {
             </LocalizationProvider>
           </Grid>
           
-          <Grid item xs={12} sm={6} md={2}>
+          <Grid item xs={12} sm={6} md={3}>
             <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
               <DatePicker
                 label="Data Fim"
@@ -456,7 +452,7 @@ const Absenteismo = () => {
             </LocalizationProvider>
           </Grid>
           
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={4}>
             <TextField
               fullWidth
               label="Pesquisar"
