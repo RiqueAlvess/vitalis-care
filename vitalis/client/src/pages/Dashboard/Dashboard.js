@@ -21,7 +21,7 @@ import { format, subMonths, parseISO } from 'date-fns';
 import axios from 'axios';
 
 // Import services
-import { empresaService, funcionarioService, absenteismoService } from '../../services/apiService';
+import apiService from '../../services/apiService';
 
 const COLORS = [
   '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', 
@@ -69,7 +69,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchEmpresas = async () => {
       try {
-        const empresasData = await empresaService.getEmpresas();
+        const empresasData = await apiService.empresa.getEmpresas();
         setEmpresas(empresasData);
       } catch (error) {
         console.error('Erro ao carregar empresas:', error);
