@@ -78,7 +78,7 @@ const Layout = () => {
     logout();
   };
 
-  // Define menu items
+  // Define menu items (removido o menu de Empresas)
   const menuItems = [
     { 
       path: '/dashboard', 
