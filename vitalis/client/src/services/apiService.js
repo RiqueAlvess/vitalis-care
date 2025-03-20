@@ -131,12 +131,36 @@ const jobQueueService = {
   }
 };
 
+// Adicionar o empresaService que está faltando
+const empresaService = {
+  async getEmpresas() {
+    try {
+      const response = await axios.get(`${API_URL}/empresas`);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao buscar empresas:', error);
+      throw error;
+    }
+  },
+  
+  async syncEmpresas() {
+    try {
+      const response = await axios.post(`${API_URL}/empresas/sync`);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao sincronizar empresas:', error);
+      throw error;
+    }
+  }
+};
+
 export {
   apiConfigService,
   funcionarioService,
   absenteismoService,
   planoService,
-  jobQueueService
+  jobQueueService,
+  empresaService  // Garantir que está incluído aqui
 };
 
 export default {
@@ -144,5 +168,6 @@ export default {
   funcionario: funcionarioService,
   absenteismo: absenteismoService,
   plano: planoService,
-  jobQueue: jobQueueService
+  jobQueue: jobQueueService,
+  empresa: empresaService  // Garantir que está incluído aqui
 };
