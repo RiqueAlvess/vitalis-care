@@ -95,14 +95,54 @@ const absenteismoService = {
   }
 };
 
+const planoService = {
+  async getPlanoAtual() {
+    try {
+      const response = await axios.get(`${API_URL}/planos/atual`);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao buscar plano atual:', error);
+      throw error;
+    }
+  },
+  
+  async atualizarParaPremium() {
+    try {
+      const response = await axios.post(`${API_URL}/planos/premium`);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao atualizar para plano premium:', error);
+      throw error;
+    }
+  }
+};
+
+const jobQueueService = {
+  async getSyncJobs(limit = 100, offset = 0) {
+    try {
+      const response = await axios.get(`${API_URL}/sync-jobs`, {
+        params: { limit, offset }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao buscar jobs de sincronização:', error);
+      throw error;
+    }
+  }
+};
+
 export {
   apiConfigService,
   funcionarioService,
-  absenteismoService
+  absenteismoService,
+  planoService,
+  jobQueueService
 };
 
 export default {
   apiConfig: apiConfigService,
   funcionario: funcionarioService,
-  absenteismo: absenteismoService
+  absenteismo: absenteismoService,
+  plano: planoService,
+  jobQueue: jobQueueService
 };
