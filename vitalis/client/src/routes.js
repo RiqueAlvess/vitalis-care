@@ -44,7 +44,7 @@ const AppRoutes = () => {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="settings" element={<Settings />} />
         
-        {/* Páginas adicionadas */}
+        {/* Páginas adicionadas (removida a rota de empresas) */}
         <Route path="funcionarios" element={<Funcionarios />} />
         <Route path="absenteismo" element={<Absenteismo />} />
         <Route path="profile" element={<Profile />} />
