@@ -13,135 +13,170 @@ dotenv.config();
 
 // Database initialization
 async function initializeDatabase() {
-  const client = await pool.connect();
   try {
-    console.log('Initializing database...');
+    console.log('Checking database connection...');
+    const client = await pool.connect();
+    console.log('Database connection successful');
+    client.release();
     
     // Create basic tables if they don't exist
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        company_name VARCHAR(200) NOT NULL,
-        email VARCHAR(255) NOT NULL UNIQUE,
-        password_hash VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
+    try {
+      console.log('Creating users table...');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          company_name VARCHAR(200) NOT NULL,
+          email VARCHAR(255) NOT NULL UNIQUE,
+          password_hash VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+    } catch (error) {
+      console.error('Error creating users table:', error.message);
+    }
 
-      CREATE TABLE IF NOT EXISTS api_configurations (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER,
-        api_type VARCHAR(50) NOT NULL, 
-        empresa_padrao VARCHAR(50),
-        codigo VARCHAR(50),
-        chave VARCHAR(255),
-        ativo VARCHAR(50),
-        inativo VARCHAR(50),
-        afastado VARCHAR(50),
-        pendente VARCHAR(50),
-        ferias VARCHAR(50),
-        data_inicio DATE,
-        data_fim DATE,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, api_type)
-      );
-      
-      CREATE TABLE IF NOT EXISTS sync_jobs (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER,
-        job_type VARCHAR(50) NOT NULL, 
-        status VARCHAR(20) NOT NULL DEFAULT 'pending',
-        params JSONB,
-        result JSONB,
-        error_message TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        started_at TIMESTAMP WITH TIME ZONE,
-        completed_at TIMESTAMP WITH TIME ZONE,
-        progress INTEGER DEFAULT 0,
-        total_records INTEGER,
-        processed_records INTEGER DEFAULT 0
-      );
-      
-      CREATE INDEX IF NOT EXISTS idx_sync_jobs_user_id ON sync_jobs(user_id);
-      CREATE INDEX IF NOT EXISTS idx_sync_jobs_status ON sync_jobs(status);
-      
-      CREATE TABLE IF NOT EXISTS funcionarios (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER,
-        codigo_empresa VARCHAR(20) NOT NULL,
-        nome_empresa VARCHAR(200),
-        codigo VARCHAR(20) NOT NULL,
-        nome VARCHAR(120),
-        codigo_unidade VARCHAR(20),
-        nome_unidade VARCHAR(130),
-        codigo_setor VARCHAR(12),
-        nome_setor VARCHAR(130),
-        codigo_cargo VARCHAR(10),
-        nome_cargo VARCHAR(130),
-        cbo_cargo VARCHAR(10),
-        ccusto VARCHAR(50),
-        nome_centro_custo VARCHAR(130),
-        matricula_funcionario VARCHAR(30) NOT NULL,
-        cpf VARCHAR(19),
-        situacao VARCHAR(12),
-        sexo INTEGER,
-        data_nascimento DATE,
-        data_admissao DATE,
-        data_demissao DATE,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-      
-      CREATE TABLE IF NOT EXISTS absenteismo (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER,
-        unidade VARCHAR(130),
-        setor VARCHAR(130),
-        matricula_func VARCHAR(30) NOT NULL,
-        dt_nascimento DATE,
-        sexo INTEGER,
-        tipo_atestado INTEGER,
-        dt_inicio_atestado DATE,
-        dt_fim_atestado DATE,
-        hora_inicio_atestado VARCHAR(5),
-        hora_fim_atestado VARCHAR(5),
-        dias_afastados INTEGER,
-        horas_afastado VARCHAR(5),
-        cid_principal VARCHAR(10),
-        descricao_cid VARCHAR(264),
-        grupo_patologico VARCHAR(80),
-        tipo_licenca VARCHAR(100),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+    try {
+      console.log('Creating api_configurations table...');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS api_configurations (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER,
+          api_type VARCHAR(50) NOT NULL, 
+          empresa_padrao VARCHAR(50),
+          codigo VARCHAR(50),
+          chave VARCHAR(255),
+          ativo VARCHAR(50),
+          inativo VARCHAR(50),
+          afastado VARCHAR(50),
+          pendente VARCHAR(50),
+          ferias VARCHAR(50),
+          data_inicio DATE,
+          data_fim DATE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, api_type)
+        );
+      `);
+    } catch (error) {
+      console.error('Error creating api_configurations table:', error.message);
+    }
     
-    // Check if migrations table exists
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS migrations (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL UNIQUE,
-        executed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+    try {
+      console.log('Creating sync_jobs table...');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS sync_jobs (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER,
+          job_type VARCHAR(50) NOT NULL, 
+          status VARCHAR(20) NOT NULL DEFAULT 'pending',
+          params JSONB,
+          result JSONB,
+          error_message TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          started_at TIMESTAMP WITH TIME ZONE,
+          completed_at TIMESTAMP WITH TIME ZONE,
+          progress INTEGER DEFAULT 0,
+          total_records INTEGER,
+          processed_records INTEGER DEFAULT 0
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_sync_jobs_user_id ON sync_jobs(user_id);
+        CREATE INDEX IF NOT EXISTS idx_sync_jobs_status ON sync_jobs(status);
+      `);
+    } catch (error) {
+      console.error('Error creating sync_jobs table:', error.message);
+    }
     
-    // Insert basic migrations record
-    await client.query(`
-      INSERT INTO migrations (name) 
-      VALUES ('001_initial_schema'), ('006_add_sync_jobs')
-      ON CONFLICT (name) DO NOTHING;
-    `);
+    try {
+      console.log('Creating funcionarios table...');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS funcionarios (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER,
+          codigo_empresa VARCHAR(20) NOT NULL,
+          nome_empresa VARCHAR(200),
+          codigo VARCHAR(20) NOT NULL,
+          nome VARCHAR(120),
+          codigo_unidade VARCHAR(20),
+          nome_unidade VARCHAR(130),
+          codigo_setor VARCHAR(12),
+          nome_setor VARCHAR(130),
+          codigo_cargo VARCHAR(10),
+          nome_cargo VARCHAR(130),
+          cbo_cargo VARCHAR(10),
+          ccusto VARCHAR(50),
+          nome_centro_custo VARCHAR(130),
+          matricula_funcionario VARCHAR(30) NOT NULL,
+          cpf VARCHAR(19),
+          situacao VARCHAR(12),
+          sexo INTEGER,
+          data_nascimento DATE,
+          data_admissao DATE,
+          data_demissao DATE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+    } catch (error) {
+      console.error('Error creating funcionarios table:', error.message);
+    }
     
-    console.log('Database initialized successfully');
+    try {
+      console.log('Creating absenteismo table...');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS absenteismo (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER,
+          unidade VARCHAR(130),
+          setor VARCHAR(130),
+          matricula_func VARCHAR(30) NOT NULL,
+          dt_nascimento DATE,
+          sexo INTEGER,
+          tipo_atestado INTEGER,
+          dt_inicio_atestado DATE,
+          dt_fim_atestado DATE,
+          hora_inicio_atestado VARCHAR(5),
+          hora_fim_atestado VARCHAR(5),
+          dias_afastados INTEGER,
+          horas_afastado VARCHAR(5),
+          cid_principal VARCHAR(10),
+          descricao_cid VARCHAR(264),
+          grupo_patologico VARCHAR(80),
+          tipo_licenca VARCHAR(100),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+    } catch (error) {
+      console.error('Error creating absenteismo table:', error.message);
+    }
+    
+    try {
+      console.log('Creating migrations table...');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS migrations (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL UNIQUE,
+          executed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      
+      // Insert basic migrations record
+      await pool.query(`
+        INSERT INTO migrations (name) 
+        VALUES ('001_initial_schema'), ('006_add_sync_jobs')
+        ON CONFLICT (name) DO NOTHING;
+      `);
+    } catch (error) {
+      console.error('Error creating migrations table:', error.message);
+    }
+    
+    console.log('Database initialization completed');
   } catch (error) {
-    console.error('Error initializing database:', error);
-  } finally {
-    client.release();
+    console.error('Database connection failed:', error.message);
+    console.log('Starting server without database connection...');
   }
 }
-
-// Immediately initialize database
-initializeDatabase();
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -174,18 +209,27 @@ app.use(helmet({
 }));
 app.use(morgan('dev'));
 
-// Check database connection
+// Modified database check middleware - don't block requests if DB is down
 app.use(async (req, res, next) => {
-  try {
-    // Test database connection
-    await pool.query('SELECT 1');
+  if (req.path.startsWith('/api')) {
+    try {
+      await pool.query('SELECT 1');
+      next();
+    } catch (error) {
+      console.error('Database connection error in middleware:', error.message);
+      // For auth endpoints, return error
+      if (req.path.startsWith('/api/auth')) {
+        return res.status(503).json({ 
+          message: 'Database service unavailable', 
+          error: 'Cannot process authentication request'
+        });
+      }
+      // For other endpoints, continue but warn in logs
+      console.warn(`Proceeding with request to ${req.path} despite database error`);
+      next();
+    }
+  } else {
     next();
-  } catch (error) {
-    console.error('Database connection error:', error);
-    res.status(500).json({ 
-      message: 'Database connection error', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    });
   }
 });
 
@@ -211,7 +255,7 @@ if (process.env.NODE_ENV === 'production') {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Error in request:', err.stack);
   
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal server error';
@@ -222,14 +266,31 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start job worker
+// Initialize app in sequence, but continue even if parts fail
 (async function() {
+  // Try to initialize database but continue if it fails
+  try {
+    await initializeDatabase();
+  } catch (error) {
+    console.error('Database initialization error:', error.message);
+  }
+  
+  // Try to run migrations but continue if they fail
+  try {
+    console.log('Running migrations...');
+    await runMigration();
+    console.log('Migrations completed');
+  } catch (error) {
+    console.error('Migration error:', error.message);
+  }
+  
+  // Start job worker
   try {
     console.log('Starting job worker...');
     jobWorker.startWorker();
     console.log('Job worker started successfully');
   } catch (error) {
-    console.error('Error starting job worker:', error);
+    console.error('Error starting job worker:', error.message);
   }
 })();
 
