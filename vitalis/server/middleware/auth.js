@@ -3,9 +3,6 @@ const { pool } = require('../db');
 
 /**
  * Middleware para verificar a autenticação do usuário
- * @param {Object} req - Requisição Express
- * @param {Object} res - Resposta Express
- * @param {Function} next - Função next do Express
  */
 exports.authenticate = async (req, res, next) => {
   try {
@@ -13,49 +10,38 @@ exports.authenticate = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('Token não fornecido, usando ID padrão 1');
-      req.user = { id: 1 };
-      return next();
+      return res.status(401).json({ message: 'Token não fornecido' });
     }
     
     const token = authHeader.split(' ')[1];
+    const JWT_SECRET = process.env.JWT_SECRET || 'chave_secreta_padrao_vitalis';
     
     try {
       // Verificar e decodificar o token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'chave_secreta_padrao');
-      
-      // Buscar o usuário no banco de dados
-      const result = await pool.query(
-        'SELECT id, company_name, email, created_at FROM users WHERE id = $1',
-        [decoded.id]
-      );
-      
-      if (result.rows.length === 0) {
-        console.log('Usuário não encontrado, usando ID padrão 1');
-        req.user = { id: 1 };
-        return next();
-      }
+      const decoded = jwt.verify(token, JWT_SECRET);
       
       // Adicionar os dados do usuário à requisição
-      const user = result.rows[0];
-      
       req.user = {
-        id: user.id,
-        companyName: user.company_name,
-        email: user.email,
-        createdAt: user.created_at
+        id: decoded.id,
+        email: decoded.email
       };
       
       next();
     } catch (jwtError) {
       console.error('Erro JWT:', jwtError);
-      console.log('Erro na autenticação, usando ID padrão 1');
-      req.user = { id: 1 };
-      next();
+      
+      if (jwtError.name === 'JsonWebTokenError') {
+        return res.status(401).json({ message: 'Token inválido' });
+      }
+      
+      if (jwtError.name === 'TokenExpiredError') {
+        return res.status(401).json({ message: 'Token expirado' });
+      }
+      
+      return res.status(401).json({ message: 'Erro na autenticação' });
     }
   } catch (error) {
     console.error('Erro no middleware de autenticação:', error);
-    req.user = { id: 1 };
-    next();
+    return res.status(500).json({ message: 'Erro interno no servidor' });
   }
 };
