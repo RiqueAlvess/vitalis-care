@@ -142,16 +142,7 @@ const Settings = () => {
     let isValid = true;
 
     // Validate fields for each API type
-    if (apiType === 'funcionario') {
-      ['empresa_padrao', 'codigo', 'chave'].forEach(field => {
-        if (!config[field]) {
-          newErrors[field] = true;
-          isValid = false;
-        } else {
-          newErrors[field] = false;
-        }
-      });
-    } else if (apiType === 'absenteismo') {
+    if (apiType === 'funcionario' || apiType === 'absenteismo') {
       ['empresa_padrao', 'codigo', 'chave'].forEach(field => {
         if (!config[field]) {
           newErrors[field] = true;
@@ -173,7 +164,7 @@ const Settings = () => {
   
   const handleSaveConfig = async (apiType) => {
     try {
-      // Validar campos obrigatórios antes de salvar
+      // Validate required fields before saving
       if (!validateConfigFields(apiType)) {
         showNotification('Preencha todos os campos obrigatórios', 'error');
         return;
@@ -182,15 +173,15 @@ const Settings = () => {
       setSavingConfig(true);
       setError(null);
       
-      // Criar uma cópia da configuração para evitar modificar o estado diretamente
+      // Create a copy of the configuration to avoid modifying state directly
       const dataToSave = { ...configurations[apiType] };
       
       console.log(`Salvando configuração ${apiType}:`, dataToSave);
       
-      // Chamar a API
+      // Call API
       const result = await apiConfigService.saveConfiguration(apiType, dataToSave);
       
-      // Atualizar o estado local com a configuração salva, se necessário
+      // Update local state with saved configuration
       setConfigurations(prev => ({
         ...prev,
         [apiType]: result.config || prev[apiType]
