@@ -144,6 +144,53 @@ async function checkSyncJobsTable() {
   }
 }
 
+// Verificar e criar tabela api_configurations se necessário
+async function checkApiConfigTable() {
+  const client = await pool.connect();
+  try {
+    // Verificar se a tabela api_configurations existe
+    const tableExists = await client.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'api_configurations'
+      );
+    `);
+    
+    if (!tableExists.rows[0].exists) {
+      console.log('Tabela api_configurations não encontrada. Criando...');
+      
+      // Criar tabela api_configurations
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS api_configurations (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          api_type VARCHAR(50) NOT NULL, 
+          empresa_padrao VARCHAR(50),
+          codigo VARCHAR(50),
+          chave VARCHAR(255),
+          ativo VARCHAR(50),
+          inativo VARCHAR(50),
+          afastado VARCHAR(50),
+          pendente VARCHAR(50),
+          ferias VARCHAR(50),
+          data_inicio DATE,
+          data_fim DATE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, api_type)
+        );
+      `);
+      
+      console.log('Tabela api_configurations criada com sucesso!');
+    }
+  } catch (error) {
+    console.error('Erro ao verificar/criar tabela api_configurations:', error);
+  } finally {
+    client.release();
+  }
+}
+
 // Executar migrações automaticamente na inicialização
 (async function() {
   try {
@@ -151,14 +198,16 @@ async function checkSyncJobsTable() {
     await runMigration();
     console.log('Migrações concluídas com sucesso!');
     
-    // Verificar e criar tabela sync_jobs se necessária
+    // Verificar e criar tabelas necessárias
+    await checkApiConfigTable();
     await checkSyncJobsTable();
     
     // Start job worker after migrations
+    console.log('Iniciando processador de jobs...');
     jobWorker.startWorker();
     console.log('Processador de jobs iniciado com sucesso');
   } catch (error) {
-    console.error('Erro ao executar migrações:', error);
+    console.error('Erro ao executar migrações ou iniciar worker:', error);
   }
 })();
 
