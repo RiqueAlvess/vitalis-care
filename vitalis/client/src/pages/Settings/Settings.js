@@ -170,7 +170,7 @@ const Settings = () => {
   
   const handleSaveConfig = async (apiType) => {
     try {
-      // Validate required fields before saving
+      // Validar campos obrigatórios antes de salvar
       if (!validateConfigFields(apiType)) {
         showNotification('Preencha todos os campos obrigatórios', 'error');
         return;
@@ -178,13 +178,24 @@ const Settings = () => {
 
       setSavingConfig(true);
       
-      // Prepare data to save
+      // Criar uma cópia da configuração para evitar modificar o estado diretamente
       const dataToSave = { ...configurations[apiType] };
       
-      await apiConfigService.saveConfiguration(apiType, dataToSave);
+      console.log(`Salvando configuração ${apiType}:`, dataToSave);
+      
+      // Chamar a API
+      const result = await apiConfigService.saveConfiguration(apiType, dataToSave);
+      
+      // Atualizar o estado local com a configuração salva, se necessário
+      setConfigurations(prev => ({
+        ...prev,
+        [apiType]: result.config || prev[apiType]
+      }));
+      
       showNotification(`Configurações de ${getApiTypeLabel(apiType)} salvas com sucesso`, 'success');
     } catch (error) {
-      showNotification(`Erro ao salvar configurações de ${getApiTypeLabel(apiType)}`, 'error');
+      console.error(`Erro ao salvar configuração ${apiType}:`, error);
+      setError(`Erro ao salvar configurações de ${getApiTypeLabel(apiType)}: ${error.response?.data?.message || 'Tente novamente mais tarde'}`);
     } finally {
       setSavingConfig(false);
     }
