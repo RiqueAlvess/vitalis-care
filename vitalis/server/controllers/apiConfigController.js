@@ -173,23 +173,29 @@ exports.saveConfiguration = async (req, res, next) => {
     const apiType = req.params.apiType;
     const config = req.body;
     
+    console.log('Salvando configuração:', apiType, 'ID do usuário:', userId);
+    console.log('Dados de configuração:', JSON.stringify(config, null, 2));
+    
     const validApiTypes = ['funcionario', 'absenteismo'];
     if (!validApiTypes.includes(apiType)) {
       return res.status(400).json({ message: 'Tipo de API inválido' });
     }
     
-    const { 
-      empresa_padrao, 
-      codigo, 
-      chave, 
-      ativo, 
-      inativo, 
-      afastado, 
-      pendente, 
-      ferias,
-      dataInicio,
-      dataFim
-    } = config;
+    // Extrair valores com defaults seguros
+    const empresa_padrao = config.empresa_padrao || '';
+    const codigo = config.codigo || '';
+    const chave = config.chave || '';
+    
+    // Converter valores booleanos para 'Sim' ou string vazia
+    const ativo = config.ativo === true ? 'Sim' : '';
+    const inativo = config.inativo === true ? 'Sim' : '';
+    const afastado = config.afastado === true ? 'Sim' : '';
+    const pendente = config.pendente === true ? 'Sim' : '';
+    const ferias = config.ferias === true ? 'Sim' : '';
+    
+    // Datas podem ser nulas
+    const dataInicio = config.dataInicio || null;
+    const dataFim = config.dataFim || null;
     
     // Verificar se a tabela existe
     const tableCheck = await client.query(`
@@ -204,6 +210,7 @@ exports.saveConfiguration = async (req, res, next) => {
     
     // Se a tabela não existir, criá-la
     if (!tableExists) {
+      console.log('Criando tabela api_configurations...');
       await client.query(`
         CREATE TABLE api_configurations (
           id SERIAL PRIMARY KEY,
@@ -234,80 +241,77 @@ exports.saveConfiguration = async (req, res, next) => {
     );
     
     if (checkResult.rows.length === 0) {
-      let insertQuery = `
-        INSERT INTO api_configurations (
+      console.log('Inserindo nova configuração...');
+      await client.query(
+        `INSERT INTO api_configurations (
           user_id, api_type, empresa_padrao, codigo, chave,
           ativo, inativo, afastado, pendente, ferias,
           data_inicio, data_fim
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      `;
-      
-      const insertParams = [
-        userId, 
-        apiType, 
-        empresa_padrao || '', 
-        codigo || '', 
-        chave || '',
-        ativo === true ? 'Sim' : '',
-        inativo === true ? 'Sim' : '',
-        afastado === true ? 'Sim' : '',
-        pendente === true ? 'Sim' : '',
-        ferias === true ? 'Sim' : '',
-        dataInicio || null,
-        dataFim || null
-      ];
-      
-      await client.query(insertQuery, insertParams);
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [
+          userId, 
+          apiType, 
+          empresa_padrao, 
+          codigo, 
+          chave,
+          ativo,
+          inativo,
+          afastado,
+          pendente,
+          ferias,
+          dataInicio,
+          dataFim
+        ]
+      );
     } else {
-      let updateQuery = `
-        UPDATE api_configurations
-        SET empresa_padrao = $1,
-            codigo = $2, 
-            chave = $3,
-            ativo = $4,
-            inativo = $5,
-            afastado = $6,
-            pendente = $7,
-            ferias = $8,
-            data_inicio = $9,
-            data_fim = $10,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE user_id = $11 AND api_type = $12
-      `;
-      
-      const updateParams = [
-        empresa_padrao || '',
-        codigo || '',
-        chave || '',
-        ativo === true ? 'Sim' : '',
-        inativo === true ? 'Sim' : '',
-        afastado === true ? 'Sim' : '',
-        pendente === true ? 'Sim' : '',
-        ferias === true ? 'Sim' : '',
-        dataInicio || null,
-        dataFim || null,
-        userId,
-        apiType
-      ];
-      
-      await client.query(updateQuery, updateParams);
+      console.log('Atualizando configuração existente...');
+      await client.query(
+        `UPDATE api_configurations SET
+          empresa_padrao = $3,
+          codigo = $4, 
+          chave = $5,
+          ativo = $6,
+          inativo = $7,
+          afastado = $8,
+          pendente = $9,
+          ferias = $10,
+          data_inicio = $11,
+          data_fim = $12,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = $1 AND api_type = $2`,
+        [
+          userId,
+          apiType,
+          empresa_padrao,
+          codigo,
+          chave,
+          ativo,
+          inativo,
+          afastado,
+          pendente,
+          ferias,
+          dataInicio,
+          dataFim
+        ]
+      );
     }
     
     await client.query('COMMIT');
     
+    // Retornar a configuração no mesmo formato esperado pelo frontend
     res.status(200).json({ 
       message: 'Configuração salva com sucesso',
       config: {
-        empresa_padrao: empresa_padrao || '',
-        codigo: codigo || '',
-        chave: chave || '',
-        ativo: ativo === true,
-        inativo: inativo === true,
-        afastado: afastado === true,
-        pendente: pendente === true,
-        ferias: ferias === true,
-        dataInicio: dataInicio || null,
-        dataFim: dataFim || null
+        empresa_padrao,
+        codigo,
+        chave,
+        ativo: ativo === 'Sim',
+        inativo: inativo === 'Sim',
+        afastado: afastado === 'Sim',
+        pendente: pendente === 'Sim',
+        ferias: ferias === 'Sim',
+        dataInicio,
+        dataFim
       }
     });
   } catch (error) {
