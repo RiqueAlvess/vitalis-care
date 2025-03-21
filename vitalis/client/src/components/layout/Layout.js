@@ -178,7 +178,7 @@ const Layout = () => {
             color="inherit"
           >
             <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
-              {currentUser?.companyName?.charAt(0) || 'U'}
+              {currentUser?.companyName?.charAt(0) || 'V'}
             </Avatar>
           </IconButton>
           <Menu
