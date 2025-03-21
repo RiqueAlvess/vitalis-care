@@ -6,7 +6,6 @@ const SOC_API_URL = 'https://ws1.soc.com.br/WebSoc/exportadados';
 exports.getConfigurations = async (req, res, next) => {
   const client = await pool.connect();
   try {
-    // Para simplificar, vamos usar o ID 1 se não houver usuário autenticado
     const userId = req.user?.id || 1;
     console.log('Buscando configurações para o usuário:', userId);
     
@@ -22,10 +21,10 @@ exports.getConfigurations = async (req, res, next) => {
     
     const configs = {};
     
-    // Criar configurações padrão se não existir
+    // Create default configurations if none exist
     if (result.rows.length === 0) {
       console.log('Nenhuma configuração encontrada, criando padrões...');
-      // Iniciar configurações padrão
+      // Start default configurations
       await client.query('BEGIN');
       
       const apiTypes = ['funcionario', 'absenteismo'];
@@ -41,7 +40,7 @@ exports.getConfigurations = async (req, res, next) => {
       
       await client.query('COMMIT');
       
-      // Buscar as configurações novamente após inserir as padrão
+      // Fetch configurations again after inserting defaults
       const newResult = await client.query(
         `SELECT api_type, empresa_padrao, codigo, chave, 
                 ativo, inativo, afastado, pendente, ferias,
@@ -51,7 +50,7 @@ exports.getConfigurations = async (req, res, next) => {
         [userId]
       );
       
-      console.log('Novas configurações criadas:', newResult.rows);
+      console.log('New configurations created:', newResult.rows);
       
       newResult.rows.forEach(row => {
         configs[row.api_type] = {
@@ -82,7 +81,7 @@ exports.getConfigurations = async (req, res, next) => {
         }
       });
     } else {
-      console.log('Configurações encontradas:', result.rows);
+      console.log('Configurations found:', result.rows);
       
       result.rows.forEach(row => {
         configs[row.api_type] = {
@@ -114,12 +113,12 @@ exports.getConfigurations = async (req, res, next) => {
       });
     }
     
-    console.log('Configurações retornadas:', configs);
+    console.log('Returning configurations:', configs);
     res.status(200).json(configs);
   } catch (error) {
-    console.error('Erro ao buscar configurações:', error);
+    console.error('Error fetching configurations:', error);
     res.status(500).json({
-      message: 'Erro ao buscar configurações',
+      message: 'Error fetching configurations',
       error: error.message
     });
   } finally {
@@ -130,7 +129,6 @@ exports.getConfigurations = async (req, res, next) => {
 exports.saveConfiguration = async (req, res, next) => {
   const client = await pool.connect();
   try {
-    // Para simplificar, vamos usar o ID 1 se não houver usuário autenticado
     const userId = req.user?.id || 1;
     const apiType = req.params.apiType;
     const config = req.body;
@@ -143,19 +141,19 @@ exports.saveConfiguration = async (req, res, next) => {
       return res.status(400).json({ message: 'Tipo de API inválido' });
     }
     
-    // Extrair valores com defaults seguros
+    // Extract values with safe defaults
     const empresa_padrao = config.empresa_padrao || '';
     const codigo = config.codigo || '';
     const chave = config.chave || '';
     
-    // Converter valores booleanos para 'Sim' ou string vazia
+    // Convert boolean values to 'Sim' or empty string
     const ativo = config.ativo === true ? 'Sim' : '';
     const inativo = config.inativo === true ? 'Sim' : '';
     const afastado = config.afastado === true ? 'Sim' : '';
     const pendente = config.pendente === true ? 'Sim' : '';
     const ferias = config.ferias === true ? 'Sim' : '';
     
-    // Datas podem ser nulas
+    // Dates can be null
     const dataInicio = config.dataInicio || null;
     const dataFim = config.dataFim || null;
     
@@ -226,7 +224,7 @@ exports.saveConfiguration = async (req, res, next) => {
     
     console.log('Configuração salva com sucesso');
     
-    // Retornar a configuração no mesmo formato esperado pelo frontend
+    // Return configuration in the same format expected by frontend
     res.status(200).json({ 
       message: 'Configuração salva com sucesso',
       config: {
