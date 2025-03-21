@@ -1,13 +1,9 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../db');
-const { isEmailCorporate } = require('../utils/validators');
 
 /**
  * Controlador para registro de usuário
- * @param {Object} req - Requisição Express
- * @param {Object} res - Resposta Express
- * @param {Function} next - Função next do Express
  */
 exports.register = async (req, res, next) => {
   const client = await pool.connect();
@@ -17,11 +13,6 @@ exports.register = async (req, res, next) => {
     // Validação dos dados de entrada
     if (!companyName || !email || !password) {
       return res.status(400).json({ message: 'Todos os campos são obrigatórios' });
-    }
-    
-    // Verificar se é um email corporativo
-    if (!isEmailCorporate(email)) {
-      return res.status(400).json({ message: 'Por favor, utilize um email corporativo' });
     }
     
     // Verificar se o email já está cadastrado
@@ -51,24 +42,14 @@ exports.register = async (req, res, next) => {
     
     const user = result.rows[0];
     
-    // Criar configurações de API padrão
-    const apiTypes = ['empresa', 'funcionario', 'absenteismo'];
-    
-    for (const apiType of apiTypes) {
-      await client.query(
-        `INSERT INTO api_configurations (user_id, api_type) 
-         VALUES ($1, $2)`,
-        [user.id, apiType]
-      );
-    }
-    
     // Commit da transação
     await client.query('COMMIT');
     
     // Gerar token JWT
+    const JWT_SECRET = process.env.JWT_SECRET || 'chave_secreta_padrao_vitalis';
     const token = jwt.sign(
       { id: user.id, email: user.email },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '24h' }
     );
     
@@ -93,9 +74,6 @@ exports.register = async (req, res, next) => {
 
 /**
  * Controlador para login de usuário
- * @param {Object} req - Requisição Express
- * @param {Object} res - Resposta Express
- * @param {Function} next - Função next do Express
  */
 exports.login = async (req, res, next) => {
   try {
@@ -125,16 +103,11 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ message: 'Credenciais inválidas' });
     }
     
-    // Atualizar a data do último login
-    await pool.query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
-      [user.id]
-    );
-    
     // Gerar token JWT
+    const JWT_SECRET = process.env.JWT_SECRET || 'chave_secreta_padrao_vitalis';
     const token = jwt.sign(
       { id: user.id, email: user.email },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '24h' }
     );
     
@@ -150,16 +123,16 @@ exports.login = async (req, res, next) => {
       token
     });
   } catch (error) {
-    next(error);
+    console.error('Erro no login:', error);
+    return res.status(500).json({ message: 'Erro no servidor' });
   }
 };
 
 /**
  * Controlador para verificar o token JWT
- * @param {Object} req - Requisição Express
- * @param {Object} res - Resposta Express
  */
 exports.verifyToken = (req, res) => {
+  // Se chegou aqui, o token já foi verificado pelo middleware
   return res.status(200).json({ 
     message: 'Token válido',
     user: req.user
