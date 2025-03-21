@@ -21,7 +21,7 @@ import { format, subMonths, parseISO } from 'date-fns';
 import axios from 'axios';
 
 // Import services
-import apiService from '../../services/apiService';
+import { funcionarioService, absenteismoService } from '../../services/apiService';
 
 const COLORS = [
   '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', 
@@ -49,7 +49,6 @@ const Dashboard = () => {
     prejuizoPorCid: []
   });
   
-  const [empresas, setEmpresas] = useState([]);
   const [dateRange, setDateRange] = useState({
     inicio: format(subMonths(new Date(), 2), 'yyyy-MM-dd'),
     fim: format(new Date(), 'yyyy-MM-dd')
@@ -65,17 +64,8 @@ const Dashboard = () => {
     recursos_disponíveis: []
   });
   
-  // Carregar dados das empresas
+  // Carregar dados do plano do usuário
   useEffect(() => {
-    const fetchEmpresas = async () => {
-      try {
-        const empresasData = await apiService.empresa.getEmpresas();
-        setEmpresas(empresasData);
-      } catch (error) {
-        console.error('Erro ao carregar empresas:', error);
-      }
-    };
-    
     const fetchPlanoUsuario = async () => {
       try {
         const response = await axios.get('/api/planos/atual');
@@ -85,7 +75,6 @@ const Dashboard = () => {
       }
     };
     
-    fetchEmpresas();
     fetchPlanoUsuario();
   }, []);
   
@@ -209,23 +198,14 @@ const Dashboard = () => {
       <Paper sx={{ p: 2, mb: 3 }} elevation={3}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
-            <FormControl fullWidth>
-              <InputLabel id="empresa-select-label">Empresa</InputLabel>
-              <Select
-                labelId="empresa-select-label"
-                id="empresa-select"
-                value={filtros.empresaId}
-                label="Empresa"
-                onChange={handleChangeEmpresa}
-              >
-                <MenuItem value="">Todas</MenuItem>
-                {empresas.map((empresa) => (
-                  <MenuItem key={empresa.id} value={empresa.codigo}>
-                    {empresa.razao_social}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <TextField
+              fullWidth
+              label="Código da Empresa"
+              variant="outlined"
+              value={filtros.empresaId}
+              onChange={handleChangeEmpresa}
+              placeholder="Deixe em branco para todas as empresas"
+            />
           </Grid>
           
           <Grid item xs={12} sm={6} md={3}>
