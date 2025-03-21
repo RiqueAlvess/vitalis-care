@@ -6,54 +6,9 @@ const SOC_API_URL = 'https://ws1.soc.com.br/WebSoc/exportadados';
 exports.getConfigurations = async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const userId = req.user.id;
-    
-    // Verificar se a tabela api_configurations existe
-    const tableCheck = await client.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'api_configurations'
-      );
-    `);
-    
-    const tableExists = tableCheck.rows[0].exists;
-    
-    // Se a tabela não existir, criá-la
-    if (!tableExists) {
-      await client.query(`
-        CREATE TABLE api_configurations (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          api_type VARCHAR(50) NOT NULL, 
-          empresa_padrao VARCHAR(50),
-          codigo VARCHAR(50),
-          chave VARCHAR(255),
-          ativo VARCHAR(50),
-          inativo VARCHAR(50),
-          afastado VARCHAR(50),
-          pendente VARCHAR(50),
-          ferias VARCHAR(50),
-          data_inicio DATE,
-          data_fim DATE,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(user_id, api_type)
-        );
-      `);
-      
-      // Registrar a tabela na tabela de migrações se existir
-      try {
-        await client.query(`
-          INSERT INTO migrations (name) 
-          VALUES ('008_add_api_configurations_table')
-          ON CONFLICT (name) DO NOTHING;
-        `);
-      } catch (error) {
-        // Ignorar erros relacionados à tabela de migrações
-        console.log('Nota: tabela de migrações não encontrada ou erro ao inserir');
-      }
-    }
+    // Para simplificar, vamos usar o ID 1 se não houver usuário autenticado
+    const userId = req.user?.id || 1;
+    console.log('Buscando configurações para o usuário:', userId);
     
     // Buscar configurações do usuário
     const result = await client.query(
@@ -69,6 +24,7 @@ exports.getConfigurations = async (req, res, next) => {
     
     // Criar configurações padrão se não existir
     if (result.rows.length === 0) {
+      console.log('Nenhuma configuração encontrada, criando padrões...');
       // Iniciar configurações padrão
       await client.query('BEGIN');
       
@@ -94,6 +50,8 @@ exports.getConfigurations = async (req, res, next) => {
          WHERE user_id = $1`,
         [userId]
       );
+      
+      console.log('Novas configurações criadas:', newResult.rows);
       
       newResult.rows.forEach(row => {
         configs[row.api_type] = {
@@ -124,6 +82,8 @@ exports.getConfigurations = async (req, res, next) => {
         }
       });
     } else {
+      console.log('Configurações encontradas:', result.rows);
+      
       result.rows.forEach(row => {
         configs[row.api_type] = {
           empresa_padrao: row.empresa_padrao || '',
@@ -154,6 +114,7 @@ exports.getConfigurations = async (req, res, next) => {
       });
     }
     
+    console.log('Configurações retornadas:', configs);
     res.status(200).json(configs);
   } catch (error) {
     console.error('Erro ao buscar configurações:', error);
@@ -169,12 +130,13 @@ exports.getConfigurations = async (req, res, next) => {
 exports.saveConfiguration = async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const userId = req.user.id;
+    // Para simplificar, vamos usar o ID 1 se não houver usuário autenticado
+    const userId = req.user?.id || 1;
     const apiType = req.params.apiType;
     const config = req.body;
     
-    console.log('Salvando configuração:', apiType, 'ID do usuário:', userId);
-    console.log('Dados de configuração:', JSON.stringify(config, null, 2));
+    console.log('Salvando configuração:', apiType, 'para usuário:', userId);
+    console.log('Dados recebidos:', config);
     
     const validApiTypes = ['funcionario', 'absenteismo'];
     if (!validApiTypes.includes(apiType)) {
@@ -196,42 +158,6 @@ exports.saveConfiguration = async (req, res, next) => {
     // Datas podem ser nulas
     const dataInicio = config.dataInicio || null;
     const dataFim = config.dataFim || null;
-    
-    // Verificar se a tabela existe
-    const tableCheck = await client.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'api_configurations'
-      );
-    `);
-    
-    const tableExists = tableCheck.rows[0].exists;
-    
-    // Se a tabela não existir, criá-la
-    if (!tableExists) {
-      console.log('Criando tabela api_configurations...');
-      await client.query(`
-        CREATE TABLE api_configurations (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          api_type VARCHAR(50) NOT NULL, 
-          empresa_padrao VARCHAR(50),
-          codigo VARCHAR(50),
-          chave VARCHAR(255),
-          ativo VARCHAR(50),
-          inativo VARCHAR(50),
-          afastado VARCHAR(50),
-          pendente VARCHAR(50),
-          ferias VARCHAR(50),
-          data_inicio DATE,
-          data_fim DATE,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(user_id, api_type)
-        );
-      `);
-    }
     
     await client.query('BEGIN');
     
@@ -298,6 +224,8 @@ exports.saveConfiguration = async (req, res, next) => {
     
     await client.query('COMMIT');
     
+    console.log('Configuração salva com sucesso');
+    
     // Retornar a configuração no mesmo formato esperado pelo frontend
     res.status(200).json({ 
       message: 'Configuração salva com sucesso',
@@ -330,6 +258,8 @@ exports.testConnection = async (req, res, next) => {
   try {
     const { type, empresa_padrao, codigo, chave, ativo, inativo, afastado, pendente, ferias } = req.body;
     
+    console.log('Testando conexão com a API SOC:', req.body);
+    
     const validApiTypes = ['funcionario', 'absenteismo'];
     if (!validApiTypes.includes(type)) {
       return res.status(400).json({ 
@@ -360,10 +290,17 @@ exports.testConnection = async (req, res, next) => {
       if (ferias) parametros.ferias = 'Sim';
     }
     
+    console.log('Parâmetros para API SOC:', parametros);
+    
     try {
       const parametrosString = JSON.stringify(parametros);
+      const url = `${SOC_API_URL}?parametro=${encodeURIComponent(parametrosString)}`;
       
-      const response = await axios.get(`${SOC_API_URL}?parametro=${encodeURIComponent(parametrosString)}`);
+      console.log('URL da requisição:', url);
+      
+      const response = await axios.get(url);
+      
+      console.log('Resposta da API SOC:', response.status);
       
       if (response.status !== 200) {
         return res.status(400).json({ 
@@ -377,7 +314,9 @@ exports.testConnection = async (req, res, next) => {
       
       try {
         parsedData = typeof responseData === 'string' ? JSON.parse(responseData) : responseData;
+        console.log('Resposta parseada:', parsedData.length ? `${parsedData.length} registros` : 'Nenhum registro');
       } catch (error) {
+        console.error('Erro ao processar resposta:', error);
         return res.status(400).json({ 
           success: false,
           message: 'Erro ao processar resposta da API SOC' 
@@ -385,6 +324,7 @@ exports.testConnection = async (req, res, next) => {
       }
       
       if (parsedData.error) {
+        console.error('Erro na resposta da API:', parsedData.error);
         return res.status(400).json({ 
           success: false,
           message: `Erro na API SOC: ${parsedData.error}` 
@@ -427,6 +367,8 @@ exports.testConnection = async (req, res, next) => {
 exports.requestSocApi = async (params) => {
   try {
     const parametrosString = JSON.stringify(params);
+    console.log('Parâmetros SOC API:', parametrosString);
+    
     const response = await axios.get(`${SOC_API_URL}?parametro=${encodeURIComponent(parametrosString)}`);
     
     // Verificar se a resposta é válida
