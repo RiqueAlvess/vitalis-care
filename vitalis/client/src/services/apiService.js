@@ -38,11 +38,8 @@ const apiConfigService = {
       return response.data;
     } catch (error) {
       console.error(`Erro ao salvar configuração de ${apiType}:`, error);
-      // Retorna resposta padrão para evitar erros no frontend
-      return {
-        message: 'Falha ao salvar configuração, tente novamente mais tarde',
-        config: config
-      };
+      // Re-throw error to allow proper error handling in component
+      throw error;
     }
   },
   
