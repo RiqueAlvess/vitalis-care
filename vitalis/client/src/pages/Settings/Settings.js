@@ -28,6 +28,7 @@ const Settings = () => {
   const [testLoading, setTestLoading] = useState(false);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const [infoDialog, setInfoDialog] = useState({ open: false, title: '', content: '' });
+  const [error, setError] = useState(null);
   
   // Configurations
   const [configurations, setConfigurations] = useState({
@@ -71,6 +72,7 @@ const Settings = () => {
   const fetchConfigurations = async () => {
     try {
       setLoading(true);
+      setError(null);
       const configs = await apiConfigService.getConfigurations();
       
       // Update state with loaded configurations
@@ -85,11 +87,11 @@ const Settings = () => {
           
           // Convert values to boolean for checkboxes
           if (apiType === 'funcionario') {
-            updatedConfigs[apiType].ativo = configs[apiType].ativo === 'Sim';
-            updatedConfigs[apiType].inativo = configs[apiType].inativo === 'Sim';
-            updatedConfigs[apiType].afastado = configs[apiType].afastado === 'Sim';
-            updatedConfigs[apiType].pendente = configs[apiType].pendente === 'Sim';
-            updatedConfigs[apiType].ferias = configs[apiType].ferias === 'Sim';
+            updatedConfigs[apiType].ativo = configs[apiType].ativo === true;
+            updatedConfigs[apiType].inativo = configs[apiType].inativo === true;
+            updatedConfigs[apiType].afastado = configs[apiType].afastado === true;
+            updatedConfigs[apiType].pendente = configs[apiType].pendente === true;
+            updatedConfigs[apiType].ferias = configs[apiType].ferias === true;
           }
         }
       });
@@ -97,6 +99,7 @@ const Settings = () => {
       setConfigurations(updatedConfigs);
       showNotification('Configurações carregadas com sucesso', 'success');
     } catch (error) {
+      setError('Erro ao carregar configurações: ' + (error.message || 'Erro desconhecido'));
       showNotification('Erro ao carregar configurações', 'error');
     } finally {
       setLoading(false);
@@ -177,6 +180,7 @@ const Settings = () => {
       }
 
       setSavingConfig(true);
+      setError(null);
       
       // Criar uma cópia da configuração para evitar modificar o estado diretamente
       const dataToSave = { ...configurations[apiType] };
@@ -196,6 +200,7 @@ const Settings = () => {
     } catch (error) {
       console.error(`Erro ao salvar configuração ${apiType}:`, error);
       setError(`Erro ao salvar configurações de ${getApiTypeLabel(apiType)}: ${error.response?.data?.message || 'Tente novamente mais tarde'}`);
+      showNotification(`Erro ao salvar configurações: ${error.message || 'Tente novamente mais tarde'}`, 'error');
     } finally {
       setSavingConfig(false);
     }
@@ -204,6 +209,7 @@ const Settings = () => {
   const handleSync = async (apiType) => {
     try {
       setSyncLoading(true);
+      setError(null);
       
       let result;
       
@@ -224,9 +230,11 @@ const Settings = () => {
       if (result.success) {
         showNotification(`Job de sincronização de ${getApiTypeLabel(apiType)} adicionado à fila.`, 'success');
       } else {
+        setError(`Erro na sincronização: ${result.message}`);
         showNotification(`Erro na sincronização: ${result.message}`, 'error');
       }
     } catch (error) {
+      setError(`Erro ao sincronizar dados de ${getApiTypeLabel(apiType)}: ${error.message || 'Erro desconhecido'}`);
       showNotification(`Erro ao sincronizar dados de ${getApiTypeLabel(apiType)}`, 'error');
     } finally {
       setSyncLoading(false);
@@ -242,6 +250,7 @@ const Settings = () => {
       }
 
       setTestLoading(true);
+      setError(null);
       
       // Prepare data for testing
       const dataToTest = { ...configurations[apiType], type: apiType };
@@ -251,9 +260,11 @@ const Settings = () => {
       if (result.success) {
         showNotification(`Conexão com API de ${getApiTypeLabel(apiType)} testada com sucesso`, 'success');
       } else {
+        setError(`Erro no teste de conexão: ${result.message}`);
         showNotification(`Erro no teste de conexão: ${result.message}`, 'error');
       }
     } catch (error) {
+      setError(`Erro ao testar conexão com API de ${getApiTypeLabel(apiType)}: ${error.message || 'Erro desconhecido'}`);
       showNotification(`Erro ao testar conexão com API de ${getApiTypeLabel(apiType)}`, 'error');
     } finally {
       setTestLoading(false);
@@ -388,6 +399,12 @@ const Settings = () => {
           Atualizar
         </Button>
       </Box>
+      
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
       
       <Paper sx={{ p: 0, mb: 4, overflow: 'hidden', borderRadius: 2, boxShadow: theme.shadows[2] }} elevation={1}>
         <Tabs
